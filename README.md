@@ -10,7 +10,7 @@ Add the following dependency to your classpath:
 
 ```xml
 <dependency>
-	<groupId>com.adobe.aem.graphql</groupId>
+	<groupId>com.adobe.aem.headless</groupId>
 	<artifactId>aem-headless-client-java</artifactId>
 	<version>1.0.0</version>
 </dependency>
