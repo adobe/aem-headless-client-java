@@ -31,8 +31,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * The client {@link AEMHeadlessClient} returns this class for the operations
- * {@link AEMHeadlessClient#postQuery(String)} and
- * {@link AEMHeadlessClient#getQuery(PersistedQuery)}. Use {@link #getData()} to
+ * {@link AEMHeadlessClient#runQuery(String)} and
+ * {@link AEMHeadlessClient#runPersistedQuery(PersistedQuery)}. Use {@link #getData()} to
  * retrieve the {@link com.fasterxml.jackson.databind.JsonNode} of the response.
  */
 public class GraphQlResponse {

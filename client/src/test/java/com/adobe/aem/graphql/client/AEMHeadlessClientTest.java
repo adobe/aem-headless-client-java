@@ -24,7 +24,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -70,22 +69,22 @@ class AEMHeadlessClientTest {
 
 	@BeforeEach
 	void setup() throws Exception {
-		aemHeadlessClient = new AEMHeadlessClient(new URI("http://localhost:4502"));
-		aemHeadlessClient.setClient(client);
+		aemHeadlessClient = new AEMHeadlessClient("http://localhost:4502");
+		aemHeadlessClient.setHttpClient(client);
 	}
 
 	@Test
-	void testBasicConstructors() throws Exception {
+	void testBasicConstructor() throws Exception {
 
 		// default
 		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json",
 				aemHeadlessClient.getEndpoint().toString());
 
-		aemHeadlessClient = new AEMHeadlessClient(new URI("http://localhost:4502/"));
+		aemHeadlessClient = new AEMHeadlessClient("http://localhost:4502/");
 		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json",
 				aemHeadlessClient.getEndpoint().toString(), "trailing slash must still use default URI");
 
-		aemHeadlessClient = new AEMHeadlessClient(new URI("http://localhost:4502/custom/endpoint.json"));
+		aemHeadlessClient = new AEMHeadlessClient("http://localhost:4502/custom/endpoint.json");
 		assertEquals("http://localhost:4502/custom/endpoint.json", aemHeadlessClient.getEndpoint().toString(),
 				"Custom URI not recognized");
 	}
@@ -113,11 +112,11 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testPostQueryNoErrors() throws Exception {
+	void testRunQueryNoErrors() throws Exception {
 
 		prepareResponse(200, RESPONSE_NO_ERRORS);
 
-		GraphQlResponse response = aemHeadlessClient.postQuery(QUERY);
+		GraphQlResponse response = aemHeadlessClient.runQuery(QUERY);
 
 		HttpRequest capturedRequest = requestCaptor.getValue();
 
@@ -132,12 +131,12 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testPostQueryUnexpectedResponseCode() throws Exception {
+	void testRunQueryUnexpectedResponseCode() throws Exception {
 
 		prepareResponse(404, "Not Found");
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.postQuery(QUERY);
+			aemHeadlessClient.runQuery(QUERY);
 		});
 
 		assertNull(thrownException.getGraphQlResponse());
@@ -146,12 +145,12 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testPostQueryErrorsWithoutData() throws Exception {
+	void testRunQueryErrorsWithoutData() throws Exception {
 
 		prepareResponse(200, RESPONSE_ERRORS);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.postQuery(QUERY);
+			aemHeadlessClient.runQuery(QUERY);
 		});
 
 		GraphQlResponse response = thrownException.getGraphQlResponse();
@@ -170,12 +169,12 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testPostQueryErrorsWithData() throws Exception {
+	void testRunQueryErrorsWithData() throws Exception {
 
 		prepareResponse(200, RESPONSE_ERRORS_AND_DATA);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.postQuery(QUERY);
+			aemHeadlessClient.runQuery(QUERY);
 		});
 
 		GraphQlResponse response = thrownException.getGraphQlResponse();
@@ -194,11 +193,11 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testGetQueryNoErrors() throws Exception {
+	void testRunPersistedQueryNoErrors() throws Exception {
 
 		prepareResponse(200, RESPONSE_NO_ERRORS);
 
-		GraphQlResponse response = aemHeadlessClient.getQuery(PERSISTED_QUERY_PATH);
+		GraphQlResponse response = aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
 
 		HttpRequest capturedRequest = requestCaptor.getValue();
 
@@ -214,12 +213,12 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testGetQueryErrorsWithoutData() throws Exception {
+	void testRunPersistedQueryErrorsWithoutData() throws Exception {
 
 		prepareResponse(200, RESPONSE_ERRORS);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.getQuery(PERSISTED_QUERY_PATH);
+			aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
 		});
 
 		GraphQlResponse response = thrownException.getGraphQlResponse();
@@ -239,12 +238,12 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testGetQueryErrorsWithData() throws Exception {
+	void testRunPersistedQueryErrorsWithData() throws Exception {
 
 		prepareResponse(200, RESPONSE_ERRORS_AND_DATA);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.getQuery(PERSISTED_QUERY_PATH);
+			aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
 		});
 
 		GraphQlResponse response = thrownException.getGraphQlResponse();
@@ -264,11 +263,11 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testListQueries() throws Exception {
+	void testListPersistedQueries() throws Exception {
 
 		prepareResponse(200, RESPONSE_LIST_QUERIES);
 
-		List<PersistedQuery> queries = aemHeadlessClient.listQueries(PERSISTED_QUERY_PRJ);
+		List<PersistedQuery> queries = aemHeadlessClient.listPersistedQueries(PERSISTED_QUERY_PRJ);
 
 		HttpRequest capturedRequest = requestCaptor.getValue();
 

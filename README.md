@@ -29,35 +29,69 @@ The client comes with a transitive dependency to the Jackson JSON library that a
 
 ### Creating an AEMHeadless Client
 
-Basic creation of the client looks as follows: 
+The easiest way to create a client looks as follows: 
 
 ```java
 import com.adobe.aem.graphql.client.AEMHeadlessClient
 ...
-AEMHeadlessClient aemHeadlessClient 
-                     = new AEMHeadlessClient(new URI("http://localhost:4503"));
+AEMHeadlessClient aemHeadlessClient = new AEMHeadlessClient("http://localhost:4503");
 ...
 ```
 
 If a non-standard GraphQL endpoint is used on AEM side, the endpoint may contain a full path:
 
 ```java
-new AEMHeadlessClient(new URI("http://localhost:4503/content/graphql-custom"));
+aemHeadlessClient = new AEMHeadlessClient("http://localhost:4503/content/graphql-custom");
 ```
-### Using Authorization
 
-If authorization is required, additional constructor arguments can be added:
+For more complex configurations, the builder pattern is available:
 
 ```java
-// ... or for basic auth
-// new AEMHeadlessClient(new URI("http://localhost:4502"), "admin", "admin")
-// ... or for bearer token
-// new AEMHeadlessClient(new URI("http://localhost:4502"), token)
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
+   .endpoint("http://localhost:4503")
+   // ... further configuration
+   .build();
 ```
+
+
+### Using Authorization
+
+If authorization is required, it can be added using the builder:
+
+```java
+
+// basic auth
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
+   .endpoint(new URI("http://localhost:4503/content/graphql-custom"))
+   .basicAuth("user", "password")
+   .build();
+// token auth   
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
+   .endpoint(new URI("http://localhost:4503/content/graphql-custom"))
+   .tokenAuth("token")
+   .build();
+```
+
+### Using a self-configured Http Client
+
+It is possible to use an own http client which e.g. allows to configure custom timeouts: 
+
+```java
+import java.net.http.HttpClient
+...
+
+HttpClient httpClient = HttpClient.newBuilder()
+             .connectTimeout(Duration.ofMinutes(2))
+             .build();
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder()
+				.endpoint("http://localhost:4502")
+				.httpClient(httpClient).build();   
+```
+
 
 ### Running Queries 
 
-To execute a simple GraphQL POST query:
+To execute a simple GraphQL query:
 
 ```java
 String query = "{\n" + 
@@ -69,9 +103,9 @@ String query = "{\n" +
 				"}";
 
 try {
-	GraphQlResponse response = aemHeadlessClient.postQuery(query);
+	GraphQlResponse response = aemHeadlessClient.runQuery(query);
 	JsonNode data = response.getData();
-	... use the data
+	// ... use the data
 } catch(AEMHeadlessClientException e) {
 	// e.getMessage() will contain an error message (independent of type of error)
 	// if a response was received, e.getGraphQlResponse() will return it (otherwise null)
@@ -83,9 +117,9 @@ To execute a persisted query:
 
 try {
    // for this to work, "/myProj/queryName" needs to be set up on AEM side
-	GraphQlResponse response = aemHeadlessClient.getQuery("/myProj/queryName");
+	GraphQlResponse response = aemHeadlessClient.runPersistedQuery("/myProj/queryName");
 	JsonNode data = response.getData();
-	... use the data
+	// ... use the data
 } catch(AEMHeadlessClientException e) {
 	// e.getMessage() will contain an error message (independent of type of error)
 	// if a response was received, e.getGraphQlResponse() return it (otherwise null)
@@ -95,7 +129,7 @@ try {
 To list available persisted queries for a configuration name:
 
 ```java
-List<PersistedQuery> queries = client.listQueries("myProj");
+List<PersistedQuery> queries = client.listPersistedQueries("myProj");
 queries.stream().forEach( persistedQuery -> { 
     /* use e.g. persistedQuery.getShortPath()... or  persistedQuery.getQuery() */ 
 });

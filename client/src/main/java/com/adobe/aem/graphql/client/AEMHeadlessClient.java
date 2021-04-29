@@ -20,7 +20,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
-import java.net.http.HttpClient.Redirect;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
@@ -70,55 +69,40 @@ public class AEMHeadlessClient {
 	static final String JSON_KEY_PATH = "path";
 	static final String JSON_KEY_VARIABLES = "variables";
 
-	private static final Duration CONNECTION_TIMEOUT = Duration.ofMinutes(1);
+	static final Duration CONNECTION_TIMEOUT_DEFAULT = Duration.ofMinutes(1);
 
-	private final URI endpoint;
+	private URI endpoint;
 	private String authorizationHeader = null;
 
-	private HttpClient client;
-
+	private HttpClient httpClient = null;
+	
 	/**
-	 * Creates a client without using authentication.
+	 * Builder that allows to configure all available options of the {@code AEMHeadlessClient}
+	 * 
+	 * @return builder
+	 * 
+	 */
+	public static @NotNull AEMHeadlessClientBuilder builder() {
+		return new AEMHeadlessClientBuilder();
+	}
+	
+	AEMHeadlessClient() {
+		// used by builder only
+	}
+	
+	/**
+	 * Creates a simple client (no authentication or other configuration). For more complex cases use {@link #builder()}.
 	 * 
 	 * If the endpoint points to a server only without path (e.g.
 	 * {@code http:/myserver:8080}), then the default endpoint for GraphQL queries
 	 * {@code /content/graphql/global/endpoint.json} is taken.
 	 * 
 	 * @param endpoint the endpoint to run queries against
+	 * @throws URISyntaxException if the endpoint is an invalid URI
 	 * 
 	 */
-	public AEMHeadlessClient(URI endpoint) {
-		if (isBlank(endpoint.getPath()) || SLASH.equals(endpoint.getPath())) {
-			this.endpoint = getUriForPath(endpoint, ENDPOINT_DEFAULT_GRAPHQL);
-		} else {
-			this.endpoint = endpoint;
-		}
-		client = HttpClient.newBuilder().connectTimeout(CONNECTION_TIMEOUT).followRedirects(Redirect.NORMAL).build();
-	}
-
-	/**
-	 * Same as endpoint-only constructor, but uses basic authentication using given
-	 * username and password.
-	 *
-	 * @param endpoint the endpoint to run queries against
-	 * @param user     the user
-	 * @param password the password
-	 */
-	public AEMHeadlessClient(URI endpoint, String user, String password) {
-		this(endpoint);
-		authorizationHeader = basicAuth(user, password);
-	}
-
-	/**
-	 * Same as endpoint-only constructor, but uses a bearer token for
-	 * authentication.
-	 * 
-	 * @param endpoint the endpoint to run queries against
-	 * @param token    the token
-	 */
-	public AEMHeadlessClient(URI endpoint, String token) {
-		this(endpoint);
-		authorizationHeader = tokenAuth(token);
+	public AEMHeadlessClient(@NotNull String endpoint) throws URISyntaxException {
+		setEndpoint(new URI(endpoint));
 	}
 
 	/**
@@ -126,8 +110,9 @@ public class AEMHeadlessClient {
 	 * 
 	 * @param query the query to execute
 	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */
-	public @NotNull GraphQlResponse postQuery(@NotNull String query) {
+	public @NotNull GraphQlResponse runQuery(@NotNull String query) {
 
 		String queryStr = createQuery(query);
 
@@ -150,8 +135,9 @@ public class AEMHeadlessClient {
 	 * 
 	 * @param configurationName the configuration name to list queries for
 	 * @return list of {@link PersistedQuery}s
+	 * @throws AEMHeadlessClientException if the persisted queries cannot be retrieved
 	 */
-	public @NotNull List<PersistedQuery> listQueries(String configurationName) {
+	public @NotNull List<PersistedQuery> listPersistedQueries(@NotNull String configurationName) {
 
 		HttpRequest request = getDefaultRequestBuilder() //
 				.uri(getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_LIST + configurationName)) //
@@ -178,11 +164,12 @@ public class AEMHeadlessClient {
 	 * Runs a persisted query on the server.
 	 * 
 	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
-	 *                       {@link #listQueries(String)}.
+	 *                       {@link #listPersistedQueries(String)}.
 	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
-	public @NotNull GraphQlResponse getQuery(PersistedQuery persistedQuery) {
-		return getQuery(persistedQuery.getShortPath());
+	public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery) {
+		return runPersistedQuery(persistedQuery.getShortPath());
 	}
 
 	/**
@@ -191,8 +178,9 @@ public class AEMHeadlessClient {
 	 * @param persistedQueryPath the persisted query path, e.g.
 	 *                           {@code /myproj/myquery}
 	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
-	public @NotNull GraphQlResponse getQuery(String persistedQueryPath) {
+	public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath) {
 
 		validatePersistedQueryPath(persistedQueryPath);
 
@@ -217,8 +205,9 @@ public class AEMHeadlessClient {
 	 * @param persistedQueryPath the path to persist the query, e.g.
 	 *                           {@code /myproj/myquery}
 	 * @return the saved {@link PersistedQuery}
+	 * @throws AEMHeadlessClientException if the query cannot be persisted
 	 */
-	public PersistedQuery saveQuery(String queryToPersist, String persistedQueryPath) {
+	public @NotNull PersistedQuery persistQuery(@NotNull String queryToPersist, @NotNull String persistedQueryPath) {
 		validatePersistedQueryPath(persistedQueryPath);
 
 		HttpRequest request = getDefaultRequestBuilder() //
@@ -236,12 +225,28 @@ public class AEMHeadlessClient {
 		return endpoint;
 	}
 
+	void setEndpoint(URI endpoint) {
+		if (isBlank(endpoint.getPath()) || SLASH.equals(endpoint.getPath())) {
+			this.endpoint = getUriForPath(endpoint, ENDPOINT_DEFAULT_GRAPHQL);
+		} else {
+			this.endpoint = endpoint;
+		}
+	}
+
 	String getAuthorizationHeader() {
 		return authorizationHeader;
 	}
 
-	void setClient(HttpClient client) {
-		this.client = client;
+	void setAuthorizationHeader(String authorizationHeader) {
+		this.authorizationHeader = authorizationHeader;
+	}
+
+	HttpClient getHttpClient() {
+		return httpClient;
+	}
+
+	void setHttpClient(HttpClient httpClient) {
+		this.httpClient = httpClient;
 	}
 
 	String createQuery(String query) {
@@ -253,7 +258,7 @@ public class AEMHeadlessClient {
 		return queryNode.toString();
 	}
 
-	private static String basicAuth(String username, String password) {
+	static String basicAuthHeaderVal(String username, String password) {
 		try {
 			return AUTH_BASIC + SPACE + Base64.getEncoder()
 					.encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1.name()));
@@ -262,7 +267,7 @@ public class AEMHeadlessClient {
 		}
 	}
 
-	private static String tokenAuth(String token) {
+	static String tokenAuthHeaderVal(String token) {
 		return AUTH_BEARER + SPACE + token;
 	}
 
@@ -276,7 +281,7 @@ public class AEMHeadlessClient {
 	}
 
 	private Builder getDefaultRequestBuilder() {
-		Builder requestBuilder = HttpRequest.newBuilder().header(HEADER_ACCEPT, CONTENT_TYPE_JSON)
+		java.net.http.HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().header(HEADER_ACCEPT, CONTENT_TYPE_JSON)
 				.header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
 		if (!isBlank(authorizationHeader)) {
 			requestBuilder = requestBuilder.header(HEADER_AUTHORIZATION, authorizationHeader);
@@ -287,7 +292,7 @@ public class AEMHeadlessClient {
 	HttpResponse<String> executeRequest(HttpRequest request, int expectedCode) {
 		HttpResponse<String> response;
 		try {
-			response = client.send(request, BodyHandlers.ofString());
+			response = httpClient.send(request, BodyHandlers.ofString());
 		} catch (IOException | InterruptedException e) {
 			throw new AEMHeadlessClientException("Http error: " + e, e);
 		}
