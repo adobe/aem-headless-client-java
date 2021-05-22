@@ -57,4 +57,22 @@ class AEMHeadlessClientBuilderTest {
 				thrownException.getMessage());
 	}
 
+	
+	@Test
+	void testAuthCannotBeSetTwice() throws URISyntaxException {
+		
+		IllegalStateException thrownException = assertThrows(IllegalStateException.class, () -> {
+			new AEMHeadlessClientBuilder()
+					.endpoint("http://host:1234")
+					.basicAuth("user", "password")
+					.tokenAuth("token") // token and basic auth can obviously not be used in parallel
+					.build();
+		});
+
+		assertEquals("Authentication is already configured",
+				thrownException.getMessage());
+		
+		
+	}
+
 }
