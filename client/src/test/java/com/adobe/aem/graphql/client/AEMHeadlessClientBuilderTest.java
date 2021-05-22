@@ -28,7 +28,7 @@ class AEMHeadlessClientBuilderTest {
 
 	@Test
 	void testBuilderBasicAuth() throws URISyntaxException {
-		AEMHeadlessClient client = new AEMHeadlessClientBuilder().basicAuth("user", "password")
+		AEMHeadlessClient client = AEMHeadlessClient.builder().basicAuth("user", "password")
 				.endpoint("http://host:1234").build();
 		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Basic dXNlcjpwYXNzd29yZA==", client.getAuthorizationHeader());
@@ -36,8 +36,8 @@ class AEMHeadlessClientBuilderTest {
 
 	@Test
 	void testBuilderTokenAuth() throws URISyntaxException {
-		AEMHeadlessClient client = new AEMHeadlessClientBuilder().tokenAuth("token")
-				.endpoint(new URI("http://host:1234")).build();
+		AEMHeadlessClient client = AEMHeadlessClient.builder().tokenAuth("token").endpoint(new URI("http://host:1234"))
+				.build();
 		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Bearer token", client.getAuthorizationHeader());
 	}
@@ -45,7 +45,7 @@ class AEMHeadlessClientBuilderTest {
 	@Test
 	void testBuilderCannotBeUsedTwice() throws URISyntaxException {
 
-		AEMHeadlessClientBuilder builder = new AEMHeadlessClientBuilder().endpoint(new URI("http://host:1234"));
+		AEMHeadlessClientBuilder builder = AEMHeadlessClient.builder().endpoint(new URI("http://host:1234"));
 		AEMHeadlessClient client = builder.build();
 		assertNotNull(client);
 
@@ -57,22 +57,19 @@ class AEMHeadlessClientBuilderTest {
 				thrownException.getMessage());
 	}
 
-	
 	@Test
 	void testAuthCannotBeSetTwice() throws URISyntaxException {
-		
+
 		IllegalStateException thrownException = assertThrows(IllegalStateException.class, () -> {
-			new AEMHeadlessClientBuilder()
-					.endpoint("http://host:1234")
-					.basicAuth("user", "password")
-					.tokenAuth("token") // token and basic auth can obviously not be used in parallel
+			AEMHeadlessClient.builder() //
+					.endpoint("http://host:1234") //
+					.basicAuth("user", "password") //
+					.tokenAuth("token") // token and basic auth must not be used in parallel (obviously)
 					.build();
 		});
 
-		assertEquals("Authentication is already configured",
-				thrownException.getMessage());
-		
-		
+		assertEquals("Authentication is already configured", thrownException.getMessage());
+
 	}
 
 }

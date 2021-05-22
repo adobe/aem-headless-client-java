@@ -26,9 +26,16 @@ import static org.mockito.Mockito.when;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublisher;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Flow;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +45,15 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @ExtendWith(MockitoExtension.class)
 class AEMHeadlessClientTest {
 	private static final String QUERY = "{ myObjects { items { prop } } } ";
+	private static final String QUERY_WITH_VAR = "query($prop: String) { myObjects(prop: $prop) { items { prop } } } ";
 	private static final String EXAMPLE_DATA = "[{\"prop\":\"value1\"},{\"prop\":\"value2\"}]";
 	private static final String EXAMPLE_ERROR = "Example Error";
 	private static final String RESPONSE_NO_ERRORS = "{\"data\":" + EXAMPLE_DATA + "}";
@@ -119,6 +132,36 @@ class AEMHeadlessClientTest {
 		GraphQlResponse response = aemHeadlessClient.runQuery(QUERY);
 
 		HttpRequest capturedRequest = requestCaptor.getValue();
+
+		JsonNode bodyJson = getBodyAsJson(capturedRequest);
+		assertEquals(QUERY, bodyJson.get(AEMHeadlessClient.JSON_KEY_QUERY).asText());
+		assertFalse(bodyJson.has(AEMHeadlessClient.JSON_KEY_VARIABLES));
+
+		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
+		assertEquals("POST", capturedRequest.method());
+		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
+				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
+
+		assertFalse(response.hasErrors());
+		assertEquals(EXAMPLE_DATA, response.getData().toString());
+
+	}
+
+	@Test
+	void testRunQueryWithVars() throws Exception {
+
+		prepareResponse(200, RESPONSE_NO_ERRORS);
+
+		Map<String, Object> vars = new HashMap<>();
+		vars.put("prop", "test");
+		GraphQlResponse response = aemHeadlessClient.runQuery(QUERY_WITH_VAR, vars);
+
+		HttpRequest capturedRequest = requestCaptor.getValue();
+
+		JsonNode bodyJson = getBodyAsJson(capturedRequest);
+		assertEquals(QUERY_WITH_VAR, bodyJson.get(AEMHeadlessClient.JSON_KEY_QUERY).asText());
+		assertTrue(bodyJson.has(AEMHeadlessClient.JSON_KEY_VARIABLES));
+		assertEquals("{\"prop\":\"test\"}", bodyJson.get(AEMHeadlessClient.JSON_KEY_VARIABLES).toString());
 
 		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
 		assertEquals("POST", capturedRequest.method());
@@ -263,6 +306,28 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
+	void testRunPersistedQueryWithVars() throws Exception {
+
+		prepareResponse(200, RESPONSE_NO_ERRORS);
+
+		Map<String, Object> vars = new HashMap<>();
+		vars.put("prop", "test");
+		GraphQlResponse response = aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH, vars);
+
+		HttpRequest capturedRequest = requestCaptor.getValue();
+
+		assertEquals("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH + ";prop=test",
+				capturedRequest.uri().toString());
+		assertEquals("GET", capturedRequest.method());
+		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
+				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
+
+		assertFalse(response.hasErrors());
+		assertEquals(EXAMPLE_DATA, response.getData().toString());
+
+	}
+
+	@Test
 	void testListPersistedQueries() throws Exception {
 
 		prepareResponse(200, RESPONSE_LIST_QUERIES);
@@ -289,6 +354,36 @@ class AEMHeadlessClientTest {
 
 		when(response.statusCode()).thenReturn(statusCode);
 		when(response.body()).thenReturn(body);
+	}
+
+	private JsonNode getBodyAsJson(HttpRequest capturedRequest) throws JsonProcessingException, JsonMappingException {
+		assertTrue(capturedRequest.bodyPublisher().isPresent());
+		BodyPublisher bodyPublisher = capturedRequest.bodyPublisher().get();
+		String bodyString = getBodyString(bodyPublisher);
+		ObjectMapper objectMapper = new ObjectMapper();
+		JsonNode bodyJson = objectMapper.readTree(bodyString);
+		return bodyJson;
+	}
+
+	private String getBodyString(HttpRequest.BodyPublisher bodyPublisher) {
+		final List<ByteBuffer> bodyItems = new ArrayList<>();
+		bodyPublisher.subscribe(new Flow.Subscriber<ByteBuffer>() {
+			public void onSubscribe(Flow.Subscription subscription) {
+				subscription.request(1);
+			}
+
+			public void onNext(ByteBuffer item) {
+				bodyItems.add(item);
+			}
+
+			public void onError(Throwable throwable) {
+			}
+
+			public void onComplete() {
+			}
+		});
+
+		return new String(bodyItems.get(0).array(), StandardCharsets.UTF_8);
 	}
 
 }
