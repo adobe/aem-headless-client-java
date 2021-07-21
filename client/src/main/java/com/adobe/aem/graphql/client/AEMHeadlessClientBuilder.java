@@ -76,6 +76,9 @@ public class AEMHeadlessClientBuilder {
 	 */
 	public @NotNull AEMHeadlessClientBuilder basicAuth(@NotNull String user, @NotNull String password) {
 		assertNotSealed();
+		if(headlessClient.getAuthorizationHeader() != null) {
+			throw new IllegalStateException("Authentication is already configured");
+		}
 		headlessClient.setAuthorizationHeader(AEMHeadlessClient.basicAuthHeaderVal(user, password));
 		return this;
 	}
@@ -88,6 +91,9 @@ public class AEMHeadlessClientBuilder {
 	 */
 	public @NotNull AEMHeadlessClientBuilder tokenAuth(@NotNull String token) {
 		assertNotSealed();
+		if(headlessClient.getAuthorizationHeader() != null) {
+			throw new IllegalStateException("Authentication is already configured");
+		}
 		headlessClient.setAuthorizationHeader(AEMHeadlessClient.tokenAuthHeaderVal(token));
 		return this;
 	}

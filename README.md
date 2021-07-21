@@ -111,7 +111,17 @@ try {
 	// if a response was received, e.getGraphQlResponse() will return it (otherwise null)
 }
 ```
-To execute a persisted query:
+
+It is also possible to pass in query parameters using a simple map as second parameter of `runQuery()`:
+
+```
+GraphQlResponse response = client.runQuery(query, Map.of("author", "Ian Provo"));
+```
+
+
+### Using Persisted Queries
+
+To execute a persisted query the the method `runPersistedQuery` is used:
 
 ```java
 
@@ -126,7 +136,16 @@ try {
 }
 ```
 
-To list available persisted queries for a configuration name:
+Also for persisted queries, query parameters can be passed in as second argument:
+
+```
+GraphQlResponse response = client.runPersistedQuery("/myProj/articles", Map.of("author", "Ian Provo"));
+```
+
+
+### Inspecting available persisted queries
+
+To list available persisted queries for a configuration name the following snippet can be used:
 
 ```java
 List<PersistedQuery> queries = client.listPersistedQueries("myProj");
@@ -134,6 +153,9 @@ queries.stream().forEach( persistedQuery -> {
     /* use e.g. persistedQuery.getShortPath()... or  persistedQuery.getQuery() */ 
 });
 ```
+
+It is best practice to deploy persisted queries as part of the software in content packages as part of the overall configuration in `/conf`.
+
 
 ## API Reference
 

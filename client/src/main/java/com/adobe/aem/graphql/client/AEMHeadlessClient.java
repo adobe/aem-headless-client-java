@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
@@ -31,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -75,9 +78,10 @@ public class AEMHeadlessClient {
 	private String authorizationHeader = null;
 
 	private HttpClient httpClient = null;
-	
+
 	/**
-	 * Builder that allows to configure all available options of the {@code AEMHeadlessClient}
+	 * Builder that allows to configure all available options of the
+	 * {@code AEMHeadlessClient}
 	 * 
 	 * @return builder
 	 * 
@@ -85,13 +89,14 @@ public class AEMHeadlessClient {
 	public static @NotNull AEMHeadlessClientBuilder builder() {
 		return new AEMHeadlessClientBuilder();
 	}
-	
+
 	AEMHeadlessClient() {
 		// used by builder only
 	}
-	
+
 	/**
-	 * Creates a simple client (no authentication or other configuration). For more complex cases use {@link #builder()}.
+	 * Creates a simple client (no authentication or other configuration). For more
+	 * complex cases use {@link #builder()}.
 	 * 
 	 * If the endpoint points to a server only without path (e.g.
 	 * {@code http:/myserver:8080}), then the default endpoint for GraphQL queries
@@ -113,8 +118,20 @@ public class AEMHeadlessClient {
 	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */
 	public @NotNull GraphQlResponse runQuery(@NotNull String query) {
+		return runQuery(query, null);
+	}
 
-		String queryStr = createQuery(query);
+	/**
+	 * Runs the given GraphQL query on server.
+	 * 
+	 * @param query the query to execute
+	 * @param variables variables for the query
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
+
+		String queryStr = createQuery(query, variables);
 
 		HttpRequest request = getDefaultRequestBuilder() //
 				.uri(endpoint) //
@@ -135,7 +152,8 @@ public class AEMHeadlessClient {
 	 * 
 	 * @param configurationName the configuration name to list queries for
 	 * @return list of {@link PersistedQuery}s
-	 * @throws AEMHeadlessClientException if the persisted queries cannot be retrieved
+	 * @throws AEMHeadlessClientException if the persisted queries cannot be
+	 *                                    retrieved
 	 */
 	public @NotNull List<PersistedQuery> listPersistedQueries(@NotNull String configurationName) {
 
@@ -169,7 +187,21 @@ public class AEMHeadlessClient {
 	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
 	public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery) {
-		return runPersistedQuery(persistedQuery.getShortPath());
+		return runPersistedQuery(persistedQuery.getShortPath(), null);
+	}
+
+	/**
+	 * Runs a persisted query on the server.
+	 * 
+	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
+	 *                       {@link #listPersistedQueries(String)} 
+	 * @param variables variables for the persisted query
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery,
+			Map<String, Object> variables) {
+		return runPersistedQuery(persistedQuery.getShortPath(), variables);
 	}
 
 	/**
@@ -181,11 +213,33 @@ public class AEMHeadlessClient {
 	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
 	public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath) {
+		return runPersistedQuery(persistedQueryPath, null);
+	}
+
+	/**
+	 * Runs a persisted query on the server.
+	 * 
+	 * @param persistedQueryPath the persisted query path, e.g.
+	 *                           {@code /myproj/myquery}
+	 * @param variables          variables for the persisted query
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath,
+			Map<String, Object> variables) {
 
 		validatePersistedQueryPath(persistedQueryPath);
 
+		String requestPath = ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath;
+		if (variables != null) {
+			requestPath += variables.entrySet().stream()
+					.map(e -> ";" + e.getKey() + "="
+							+ URLEncoder.encode(String.valueOf(e.getValue()), StandardCharsets.ISO_8859_1))
+					.collect(Collectors.joining());
+		}
+
 		HttpRequest request = getDefaultRequestBuilder() //
-				.uri(getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath)) //
+				.uri(getUriForPath(endpoint, requestPath)) //
 				.GET() //
 				.build();
 
@@ -249,12 +303,13 @@ public class AEMHeadlessClient {
 		this.httpClient = httpClient;
 	}
 
-	String createQuery(String query) {
-
+	String createQuery(String query, Map<String, Object> variables) {
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode queryNode = mapper.createObjectNode();
 		queryNode.put(JSON_KEY_QUERY, query);
-		queryNode.put(JSON_KEY_VARIABLES, (String) null);
+		if (variables != null) {
+			queryNode.set(JSON_KEY_VARIABLES, mapper.valueToTree(variables));
+		}
 		return queryNode.toString();
 	}
 
@@ -281,8 +336,8 @@ public class AEMHeadlessClient {
 	}
 
 	private Builder getDefaultRequestBuilder() {
-		java.net.http.HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().header(HEADER_ACCEPT, CONTENT_TYPE_JSON)
-				.header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
+		java.net.http.HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+				.header(HEADER_ACCEPT, CONTENT_TYPE_JSON).header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
 		if (!isBlank(authorizationHeader)) {
 			requestBuilder = requestBuilder.header(HEADER_AUTHORIZATION, authorizationHeader);
 		}
