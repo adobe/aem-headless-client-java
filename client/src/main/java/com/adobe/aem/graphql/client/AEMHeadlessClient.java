@@ -125,6 +125,7 @@ public class AEMHeadlessClient {
 	 * Runs the given GraphQL query on server.
 	 * 
 	 * @param query the query to execute
+	 * @param variables variables for the query
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */
@@ -193,8 +194,8 @@ public class AEMHeadlessClient {
 	 * Runs a persisted query on the server.
 	 * 
 	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
-	 *                       {@link #listPersistedQueries(String)}. * @param
-	 *                       variables variables for the persisted query
+	 *                       {@link #listPersistedQueries(String)} 
+	 * @param variables variables for the persisted query
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
