@@ -20,22 +20,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublisher;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
-import java.nio.ByteBuffer;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Flow;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,15 +46,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class AEMHeadlessClientTest {
+	private static final String DEFAULT_ENDPOINT = "http://localhost:4502/content/graphql/global/endpoint.json";
+
 	private static final String QUERY = "{ myObjects { items { prop } } } ";
 	private static final String QUERY_WITH_VAR = "query($prop: String) { myObjects(prop: $prop) { items { prop } } } ";
 	private static final String EXAMPLE_DATA = "[{\"prop\":\"value1\"},{\"prop\":\"value2\"}]";
@@ -71,19 +72,15 @@ class AEMHeadlessClientTest {
 
 	AEMHeadlessClient aemHeadlessClient;
 
+	@Mock
+	HttpURLConnection httpURLConnection;
+
 	@Captor
-	ArgumentCaptor<HttpRequest> requestCaptor;
-
-	@Mock
-	HttpResponse<String> response;
-
-	@Mock
-	HttpClient client;
+	ArgumentCaptor<URI> endpointCaptor;
 
 	@BeforeEach
 	void setup() throws Exception {
-		aemHeadlessClient = new AEMHeadlessClient("http://localhost:4502");
-		aemHeadlessClient.setHttpClient(client);
+		aemHeadlessClient = spy(new AEMHeadlessClient("http://localhost:4502"));
 	}
 
 	@Test
@@ -127,20 +124,15 @@ class AEMHeadlessClientTest {
 	@Test
 	void testRunQueryNoErrors() throws Exception {
 
-		prepareResponse(200, RESPONSE_NO_ERRORS);
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
+
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
+		doReturn(RESPONSE_NO_ERRORS).when(aemHeadlessClient).executeRequest(endpoint, AEMHeadlessClient.METHOD_POST,
+				expectedQuery, 200);
 
 		GraphQlResponse response = aemHeadlessClient.runQuery(QUERY);
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		JsonNode bodyJson = getBodyAsJson(capturedRequest);
-		assertEquals(QUERY, bodyJson.get(AEMHeadlessClient.JSON_KEY_QUERY).asText());
-		assertFalse(bodyJson.has(AEMHeadlessClient.JSON_KEY_VARIABLES));
-
-		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
-		assertEquals("POST", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
+		verify(aemHeadlessClient, times(1)).executeRequest(endpoint, AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
 
 		assertFalse(response.hasErrors());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
@@ -150,23 +142,18 @@ class AEMHeadlessClientTest {
 	@Test
 	void testRunQueryWithVars() throws Exception {
 
-		prepareResponse(200, RESPONSE_NO_ERRORS);
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
 
 		Map<String, Object> vars = new HashMap<>();
 		vars.put("prop", "test");
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY_WITH_VAR, vars);
+
+		doReturn(RESPONSE_NO_ERRORS).when(aemHeadlessClient).executeRequest(endpoint, AEMHeadlessClient.METHOD_POST,
+				expectedQuery, 200);
+
 		GraphQlResponse response = aemHeadlessClient.runQuery(QUERY_WITH_VAR, vars);
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		JsonNode bodyJson = getBodyAsJson(capturedRequest);
-		assertEquals(QUERY_WITH_VAR, bodyJson.get(AEMHeadlessClient.JSON_KEY_QUERY).asText());
-		assertTrue(bodyJson.has(AEMHeadlessClient.JSON_KEY_VARIABLES));
-		assertEquals("{\"prop\":\"test\"}", bodyJson.get(AEMHeadlessClient.JSON_KEY_VARIABLES).toString());
-
-		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
-		assertEquals("POST", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
+		verify(aemHeadlessClient, times(1)).executeRequest(endpoint, AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
 
 		assertFalse(response.hasErrors());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
@@ -174,23 +161,13 @@ class AEMHeadlessClientTest {
 	}
 
 	@Test
-	void testRunQueryUnexpectedResponseCode() throws Exception {
-
-		prepareResponse(404, "Not Found");
-
-		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
-			aemHeadlessClient.runQuery(QUERY);
-		});
-
-		assertNull(thrownException.getGraphQlResponse());
-		assertEquals("Unexpected http response code 404: Not Found", thrownException.getMessage());
-
-	}
-
-	@Test
 	void testRunQueryErrorsWithoutData() throws Exception {
 
-		prepareResponse(200, RESPONSE_ERRORS);
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
+
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
+		doReturn(RESPONSE_ERRORS).when(aemHeadlessClient).executeRequest(endpoint, AEMHeadlessClient.METHOD_POST,
+				expectedQuery, 200);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
 			aemHeadlessClient.runQuery(QUERY);
@@ -202,19 +179,16 @@ class AEMHeadlessClientTest {
 		assertEquals(EXAMPLE_ERROR, response.getErrors().get(0).getMessage());
 		assertNull(response.getData());
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
-		assertEquals("POST", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
-
 	}
 
 	@Test
 	void testRunQueryErrorsWithData() throws Exception {
 
-		prepareResponse(200, RESPONSE_ERRORS_AND_DATA);
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
+
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
+		doReturn(RESPONSE_ERRORS_AND_DATA).when(aemHeadlessClient).executeRequest(endpoint,
+				AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
 			aemHeadlessClient.runQuery(QUERY);
@@ -226,29 +200,17 @@ class AEMHeadlessClientTest {
 		assertEquals(EXAMPLE_ERROR, response.getErrors().get(0).getMessage());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/content/graphql/global/endpoint.json", capturedRequest.uri().toString());
-		assertEquals("POST", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
-
 	}
 
 	@Test
 	void testRunPersistedQueryNoErrors() throws Exception {
 
-		prepareResponse(200, RESPONSE_NO_ERRORS);
+		URI endpoint = new URI("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH);
+
+		doReturn(RESPONSE_NO_ERRORS).when(aemHeadlessClient).executeRequest(endpoint, AEMHeadlessClient.METHOD_GET,
+				null, 200);
 
 		GraphQlResponse response = aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
-
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH,
-				capturedRequest.uri().toString());
-		assertEquals("GET", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
 
 		assertFalse(response.hasErrors());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
@@ -258,7 +220,10 @@ class AEMHeadlessClientTest {
 	@Test
 	void testRunPersistedQueryErrorsWithoutData() throws Exception {
 
-		prepareResponse(200, RESPONSE_ERRORS);
+		URI endpoint = new URI("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH);
+
+		doReturn(RESPONSE_ERRORS).when(aemHeadlessClient).executeRequest(endpoint, AEMHeadlessClient.METHOD_GET, null,
+				200);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
 			aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
@@ -269,21 +234,15 @@ class AEMHeadlessClientTest {
 		assertTrue(response.hasErrors());
 		assertEquals(EXAMPLE_ERROR, response.getErrors().get(0).getMessage());
 		assertNull(response.getData());
-
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH,
-				capturedRequest.uri().toString());
-		assertEquals("GET", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
-
 	}
 
 	@Test
 	void testRunPersistedQueryErrorsWithData() throws Exception {
 
-		prepareResponse(200, RESPONSE_ERRORS_AND_DATA);
+		URI endpoint = new URI("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH);
+
+		doReturn(RESPONSE_ERRORS_AND_DATA).when(aemHeadlessClient).executeRequest(endpoint,
+				AEMHeadlessClient.METHOD_GET, null, 200);
 
 		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
 			aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH);
@@ -295,52 +254,41 @@ class AEMHeadlessClientTest {
 		assertEquals(EXAMPLE_ERROR, response.getErrors().get(0).getMessage());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH,
-				capturedRequest.uri().toString());
-		assertEquals("GET", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
-
 	}
 
 	@Test
 	void testRunPersistedQueryWithVars() throws Exception {
 
-		prepareResponse(200, RESPONSE_NO_ERRORS);
+		doReturn(RESPONSE_NO_ERRORS).when(aemHeadlessClient).executeRequest(any(URI.class),
+				eq(AEMHeadlessClient.METHOD_GET), isNull(), eq(200));
 
 		Map<String, Object> vars = new HashMap<>();
 		vars.put("prop", "test");
 		GraphQlResponse response = aemHeadlessClient.runPersistedQuery(PERSISTED_QUERY_PATH, vars);
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
-
-		assertEquals("http://localhost:4502/graphql/execute.json" + PERSISTED_QUERY_PATH + ";prop=test",
-				capturedRequest.uri().toString());
-		assertEquals("GET", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
-
 		assertFalse(response.hasErrors());
 		assertEquals(EXAMPLE_DATA, response.getData().toString());
+
+		verify(aemHeadlessClient).executeRequest(endpointCaptor.capture(), eq(AEMHeadlessClient.METHOD_GET), any(),
+				eq(200));
+		URI actualUri = endpointCaptor.getValue();
+		assertEquals("http://localhost:4502/graphql/execute.json/proj/queryName;prop=test", actualUri.toString());
 
 	}
 
 	@Test
 	void testListPersistedQueries() throws Exception {
 
-		prepareResponse(200, RESPONSE_LIST_QUERIES);
+		doReturn(RESPONSE_LIST_QUERIES).when(aemHeadlessClient).executeRequest(any(URI.class),
+				eq(AEMHeadlessClient.METHOD_GET), isNull(), eq(200));
 
 		List<PersistedQuery> queries = aemHeadlessClient.listPersistedQueries(PERSISTED_QUERY_PRJ);
 
-		HttpRequest capturedRequest = requestCaptor.getValue();
+		verify(aemHeadlessClient).executeRequest(endpointCaptor.capture(), eq(AEMHeadlessClient.METHOD_GET), any(),
+				eq(200));
 
 		assertEquals("http://localhost:4502/graphql/list.json/" + PERSISTED_QUERY_PRJ,
-				capturedRequest.uri().toString());
-		assertEquals("GET", capturedRequest.method());
-		assertEquals(AEMHeadlessClient.CONTENT_TYPE_JSON,
-				capturedRequest.headers().firstValue(AEMHeadlessClient.HEADER_CONTENT_TYPE).get());
+				endpointCaptor.getValue().toString());
 
 		assertEquals(1, queries.size());
 		assertEquals(PERSISTED_QUERY_PATH, queries.get(0).getShortPath());
@@ -348,42 +296,78 @@ class AEMHeadlessClientTest {
 
 	}
 
-	private void prepareResponse(int statusCode, String body) throws Exception {
+	@Test
+	void testExecuteRequest() throws Exception {
 
-		doReturn(response).when(client).send(requestCaptor.capture(), eq(BodyHandlers.ofString()));
+		doReturn(httpURLConnection).when(aemHeadlessClient).openHttpConnection(any(URI.class));
 
-		when(response.statusCode()).thenReturn(statusCode);
-		when(response.body()).thenReturn(body);
+		when(httpURLConnection.getResponseCode()).thenReturn(200);
+		ByteArrayOutputStream requestEntityOutputStream = new ByteArrayOutputStream();
+		when(httpURLConnection.getOutputStream()).thenReturn(requestEntityOutputStream);
+		InputStream responseEntityInputStream = new ByteArrayInputStream(
+				RESPONSE_NO_ERRORS.getBytes(StandardCharsets.UTF_8));
+		when(httpURLConnection.getInputStream()).thenReturn(responseEntityInputStream);
+
+		URI endpoint = new URI("http://localhost:4502/content/graphql/global/endpoint.json");
+
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
+		String response = aemHeadlessClient.executeRequest(endpoint, AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
+		assertEquals(RESPONSE_NO_ERRORS, response);
+		assertEquals(expectedQuery, requestEntityOutputStream.toString(StandardCharsets.UTF_8.name()));
+
+		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_ACCEPT,
+				AEMHeadlessClient.CONTENT_TYPE_JSON);
+		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_CONTENT_TYPE,
+				AEMHeadlessClient.CONTENT_TYPE_JSON);
+
+		verify(httpURLConnection, never()).setRequestProperty(eq(AEMHeadlessClient.HEADER_AUTHORIZATION), any());
+
 	}
 
-	private JsonNode getBodyAsJson(HttpRequest capturedRequest) throws JsonProcessingException, JsonMappingException {
-		assertTrue(capturedRequest.bodyPublisher().isPresent());
-		BodyPublisher bodyPublisher = capturedRequest.bodyPublisher().get();
-		String bodyString = getBodyString(bodyPublisher);
-		ObjectMapper objectMapper = new ObjectMapper();
-		JsonNode bodyJson = objectMapper.readTree(bodyString);
-		return bodyJson;
+	@Test
+	void testExecuteRequestWithAuthentication() throws Exception {
+
+		doReturn(httpURLConnection).when(aemHeadlessClient).openHttpConnection(any(URI.class));
+
+		aemHeadlessClient.setAuthorizationHeader("test");
+		when(httpURLConnection.getResponseCode()).thenReturn(200);
+		when(httpURLConnection.getOutputStream()).thenReturn(new ByteArrayOutputStream());
+		when(httpURLConnection.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[0]));
+
+		URI endpoint = new URI("http://localhost:4502/content/graphql/global/endpoint.json");
+
+		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
+		aemHeadlessClient.executeRequest(endpoint, AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
+
+		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_ACCEPT,
+				AEMHeadlessClient.CONTENT_TYPE_JSON);
+		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_CONTENT_TYPE,
+				AEMHeadlessClient.CONTENT_TYPE_JSON);
+		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_AUTHORIZATION, "test");
+
 	}
 
-	private String getBodyString(HttpRequest.BodyPublisher bodyPublisher) {
-		final List<ByteBuffer> bodyItems = new ArrayList<>();
-		bodyPublisher.subscribe(new Flow.Subscriber<ByteBuffer>() {
-			public void onSubscribe(Flow.Subscription subscription) {
-				subscription.request(1);
-			}
+	@Test
+	void testExecuteRequestUnexpectedResponseCode() throws Exception {
 
-			public void onNext(ByteBuffer item) {
-				bodyItems.add(item);
-			}
+		doReturn(httpURLConnection).when(aemHeadlessClient).openHttpConnection(Mockito.any(URI.class));
 
-			public void onError(Throwable throwable) {
-			}
+		when(httpURLConnection.getResponseCode()).thenReturn(404);
+		ByteArrayOutputStream requestEntityOutputStream = new ByteArrayOutputStream();
+		when(httpURLConnection.getOutputStream()).thenReturn(requestEntityOutputStream);
+		InputStream responseEntityInputStream = new ByteArrayInputStream("Not Found".getBytes(StandardCharsets.UTF_8));
+		when(httpURLConnection.getInputStream()).thenReturn(responseEntityInputStream);
 
-			public void onComplete() {
-			}
+		URI endpoint = new URI("http://localhost:4502/content/graphql/global/endpoint.json");
+
+		AEMHeadlessClientException thrownException = assertThrows(AEMHeadlessClientException.class, () -> {
+			aemHeadlessClient.executeRequest(endpoint, AEMHeadlessClient.METHOD_POST,
+					aemHeadlessClient.createQuery(QUERY, null), 200);
 		});
 
-		return new String(bodyItems.get(0).array(), StandardCharsets.UTF_8);
+		assertNull(thrownException.getGraphQlResponse());
+		assertEquals("Unexpected http response code 404: Not Found", thrownException.getMessage());
+
 	}
 
 }

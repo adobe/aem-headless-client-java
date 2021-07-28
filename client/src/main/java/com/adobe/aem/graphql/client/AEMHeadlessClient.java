@@ -16,16 +16,15 @@
 package com.adobe.aem.graphql.client;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublishers;
-import java.net.http.HttpRequest.Builder;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -60,6 +59,9 @@ public class AEMHeadlessClient {
 	static final String CONTENT_TYPE_JSON = "application/json";
 	static final String SPACE = " ";
 	static final String SLASH = "/";
+	static final String METHOD_GET = "GET";
+	static final String METHOD_PUT = "PUT";
+	static final String METHOD_POST = "POST";
 
 	static final String JSON_KEY_QUERY = "query";
 	static final String JSON_KEY_QUERIES = "queries";
@@ -76,8 +78,6 @@ public class AEMHeadlessClient {
 
 	private URI endpoint;
 	private String authorizationHeader = null;
-
-	private HttpClient httpClient = null;
 
 	/**
 	 * Builder that allows to configure all available options of the
@@ -124,7 +124,7 @@ public class AEMHeadlessClient {
 	/**
 	 * Runs the given GraphQL query on server.
 	 * 
-	 * @param query the query to execute
+	 * @param query     the query to execute
 	 * @param variables variables for the query
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
@@ -133,13 +133,9 @@ public class AEMHeadlessClient {
 
 		String queryStr = createQuery(query, variables);
 
-		HttpRequest request = getDefaultRequestBuilder() //
-				.uri(endpoint) //
-				.POST(BodyPublishers.ofString(queryStr)) //
-				.build();
+		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
 
-		HttpResponse<String> responseStr = executeRequest(request, 200);
-		JsonNode responseJson = stringToJson(responseStr.body());
+		JsonNode responseJson = stringToJson(responseStr);
 		GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
 		if (graphQlResponse.hasErrors()) {
 			throw new AEMHeadlessClientException(graphQlResponse);
@@ -157,14 +153,10 @@ public class AEMHeadlessClient {
 	 */
 	public @NotNull List<PersistedQuery> listPersistedQueries(@NotNull String configurationName) {
 
-		HttpRequest request = getDefaultRequestBuilder() //
-				.uri(getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_LIST + configurationName)) //
-				.GET() //
-				.build();
+		String responseStr = executeRequest(
+				getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_LIST + configurationName), METHOD_GET, null, 200);
 
-		HttpResponse<String> response = executeRequest(request, 200);
-
-		JsonNode persistedQueriesJson = stringToJson(response.body());
+		JsonNode persistedQueriesJson = stringToJson(responseStr);
 
 		JsonNode persistedQueriesNode = persistedQueriesJson.get(0).get(JSON_KEY_QUERIES);
 
@@ -194,8 +186,8 @@ public class AEMHeadlessClient {
 	 * Runs a persisted query on the server.
 	 * 
 	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
-	 *                       {@link #listPersistedQueries(String)} 
-	 * @param variables variables for the persisted query
+	 *                       {@link #listPersistedQueries(String)}
+	 * @param variables      variables for the persisted query
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
 	 */
@@ -232,24 +224,26 @@ public class AEMHeadlessClient {
 
 		String requestPath = ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath;
 		if (variables != null) {
-			requestPath += variables.entrySet().stream()
-					.map(e -> ";" + e.getKey() + "="
-							+ URLEncoder.encode(String.valueOf(e.getValue()), StandardCharsets.ISO_8859_1))
-					.collect(Collectors.joining());
+			requestPath += variables.entrySet().stream().map(this::mapEntryToReqParam).collect(Collectors.joining());
 		}
 
-		HttpRequest request = getDefaultRequestBuilder() //
-				.uri(getUriForPath(endpoint, requestPath)) //
-				.GET() //
-				.build();
+		String responseStr = executeRequest(getUriForPath(endpoint, requestPath), METHOD_GET, null, 200);
 
-		HttpResponse<String> responseStr = executeRequest(request, 200);
-		JsonNode responseJson = stringToJson(responseStr.body());
+		JsonNode responseJson = stringToJson(responseStr);
 		GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
 		if (graphQlResponse.hasErrors()) {
 			throw new AEMHeadlessClientException(graphQlResponse);
 		}
 		return graphQlResponse;
+	}
+
+	private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
+		try {
+			return ";" + entry.getKey() + "="
+					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.ISO_8859_1.name());
+		} catch (UnsupportedEncodingException e) {
+			throw new IllegalStateException("Encoding " + StandardCharsets.ISO_8859_1 + " not supported", e);
+		}
 	}
 
 	/**
@@ -264,13 +258,10 @@ public class AEMHeadlessClient {
 	public @NotNull PersistedQuery persistQuery(@NotNull String queryToPersist, @NotNull String persistedQueryPath) {
 		validatePersistedQueryPath(persistedQueryPath);
 
-		HttpRequest request = getDefaultRequestBuilder() //
-				.uri(getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_PERSIST + persistedQueryPath)) //
-				.PUT(BodyPublishers.ofString(queryToPersist))//
-				.build();
-
-		HttpResponse<String> responseStr = executeRequest(request, 201);
-		JsonNode responseJson = stringToJson(responseStr.body());
+		String responseStr = executeRequest(
+				getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_PERSIST + persistedQueryPath), METHOD_PUT,
+				queryToPersist, 201);
+		JsonNode responseJson = stringToJson(responseStr);
 		return new PersistedQuery(responseJson.get(JSON_KEY_SHORT_PATH).asText(),
 				responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
 	}
@@ -293,14 +284,6 @@ public class AEMHeadlessClient {
 
 	void setAuthorizationHeader(String authorizationHeader) {
 		this.authorizationHeader = authorizationHeader;
-	}
-
-	HttpClient getHttpClient() {
-		return httpClient;
-	}
-
-	void setHttpClient(HttpClient httpClient) {
-		this.httpClient = httpClient;
 	}
 
 	String createQuery(String query, Map<String, Object> variables) {
@@ -335,29 +318,58 @@ public class AEMHeadlessClient {
 		}
 	}
 
-	private Builder getDefaultRequestBuilder() {
-		java.net.http.HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-				.header(HEADER_ACCEPT, CONTENT_TYPE_JSON).header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
-		if (!isBlank(authorizationHeader)) {
-			requestBuilder = requestBuilder.header(HEADER_AUTHORIZATION, authorizationHeader);
+	String executeRequest(URI uri, String method, String entity, int expectedCode) {
+
+		try {
+			HttpURLConnection httpCon = openHttpConnection(uri);
+			httpCon.setRequestMethod(method);
+			httpCon.setRequestProperty(HEADER_ACCEPT, CONTENT_TYPE_JSON);
+			httpCon.setRequestProperty(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
+			if (!isBlank(authorizationHeader)) {
+				httpCon.setRequestProperty(HEADER_AUTHORIZATION, authorizationHeader);
+			}
+			httpCon.setDoOutput(true);
+
+			if (entity != null) {
+				try (OutputStreamWriter out = new OutputStreamWriter(httpCon.getOutputStream(),
+						StandardCharsets.UTF_8)) {
+					out.write(entity);
+				}
+			}
+
+			String responseBody;
+			try (InputStream inputStream = httpCon.getInputStream()) {
+				responseBody = inputStreamToString(inputStream);
+			}
+
+			int responseCode = httpCon.getResponseCode();
+
+			if (responseCode != expectedCode) {
+				throw new AEMHeadlessClientException(
+						"Unexpected http response code " + responseCode + ": " + responseBody);
+			}
+
+			return responseBody;
+		} catch (AEMHeadlessClientException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new AEMHeadlessClientException("Could not execute " + method + " request to " + uri + ": " + e, e);
 		}
-		return requestBuilder;
 	}
 
-	HttpResponse<String> executeRequest(HttpRequest request, int expectedCode) {
-		HttpResponse<String> response;
-		try {
-			response = httpClient.send(request, BodyHandlers.ofString());
-		} catch (IOException | InterruptedException e) {
-			throw new AEMHeadlessClientException("Http error: " + e, e);
-		}
+	HttpURLConnection openHttpConnection(URI uri) throws IOException {
+		return (HttpURLConnection) uri.toURL().openConnection();
+	}
 
-		if (response.statusCode() != expectedCode) {
-			throw new AEMHeadlessClientException(
-					"Unexpected http response code " + response.statusCode() + ": " + response.body());
+	private String inputStreamToString(InputStream inputStream) throws IOException {
+		int bufferSize = 1024;
+		char[] buffer = new char[bufferSize];
+		StringBuilder out = new StringBuilder();
+		Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+		for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0;) {
+			out.append(buffer, 0, numRead);
 		}
-
-		return response;
+		return out.toString();
 	}
 
 	private JsonNode stringToJson(String jsonResponseStr) {
