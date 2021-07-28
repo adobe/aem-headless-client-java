@@ -96,6 +96,30 @@ public class AEMHeadlessClientBuilder {
 		return this;
 	}
 
+	/**
+	 * Configures the connect timeout.
+	 * 
+	 * @param connectTimeout the connect timeout
+	 * @return the builder
+	 */
+	public @NotNull AEMHeadlessClientBuilder connectTimeout(int connectTimeout) {
+		assertNotSealed();
+		headlessClient.setConnectTimeout(connectTimeout);
+		return this;
+	}
+
+	/**
+	 * Configures the read timeout.
+	 * 
+	 * @param readTimeout the connect timeout
+	 * @return the builder
+	 */
+	public @NotNull AEMHeadlessClientBuilder readTimeout(int readTimeout) {
+		assertNotSealed();
+		headlessClient.setReadTimeout(readTimeout);
+		return this;
+	}
+
 	public @NotNull AEMHeadlessClient build() {
 		assertNotSealed();
 		sealed = true;

@@ -26,7 +26,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Iterator;
@@ -74,10 +73,12 @@ public class AEMHeadlessClient {
 	static final String JSON_KEY_PATH = "path";
 	static final String JSON_KEY_VARIABLES = "variables";
 
-	static final Duration CONNECTION_TIMEOUT_DEFAULT = Duration.ofMinutes(1);
+	static final int DEFAULT_TIMEOUT = 15000;
 
 	private URI endpoint;
 	private String authorizationHeader = null;
+	private int connectTimeout = DEFAULT_TIMEOUT;
+	private int readTimeout = DEFAULT_TIMEOUT;
 
 	/**
 	 * Builder that allows to configure all available options of the
@@ -286,6 +287,22 @@ public class AEMHeadlessClient {
 		this.authorizationHeader = authorizationHeader;
 	}
 
+	int getConnectTimeout() {
+		return connectTimeout;
+	}
+
+	void setConnectTimeout(int connectTimeout) {
+		this.connectTimeout = connectTimeout;
+	}
+
+	int getReadTimeout() {
+		return readTimeout;
+	}
+
+	void setReadTimeout(int readTimeout) {
+		this.readTimeout = readTimeout;
+	}
+
 	String createQuery(String query, Map<String, Object> variables) {
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode queryNode = mapper.createObjectNode();
@@ -322,6 +339,8 @@ public class AEMHeadlessClient {
 
 		try {
 			HttpURLConnection httpCon = openHttpConnection(uri);
+			httpCon.setConnectTimeout(connectTimeout);
+			httpCon.setReadTimeout(readTimeout);
 			httpCon.setRequestMethod(method);
 			httpCon.setRequestProperty(HEADER_ACCEPT, CONTENT_TYPE_JSON);
 			httpCon.setRequestProperty(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);

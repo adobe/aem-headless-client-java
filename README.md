@@ -53,6 +53,17 @@ AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
    .build();
 ```
 
+To create a client with explicitly set timeouts:
+
+```java
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
+   .endpoint("http://localhost:4503")
+   .connectTimeout(10000)
+   .readTimeout(30000)
+   .build();
+```
+
+If timeouts are not set explicitly a default of 15 seconds is used. To disable timeouts (not recommended) use the value `0`.
 
 ### Using Authorization
 

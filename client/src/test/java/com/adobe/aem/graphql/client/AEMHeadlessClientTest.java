@@ -339,11 +339,14 @@ class AEMHeadlessClientTest {
 		String expectedQuery = aemHeadlessClient.createQuery(QUERY, null);
 		aemHeadlessClient.executeRequest(endpoint, AEMHeadlessClient.METHOD_POST, expectedQuery, 200);
 
-		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_ACCEPT,
+		verify(httpURLConnection).setRequestProperty(AEMHeadlessClient.HEADER_ACCEPT,
 				AEMHeadlessClient.CONTENT_TYPE_JSON);
-		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_CONTENT_TYPE,
+		verify(httpURLConnection).setRequestProperty(AEMHeadlessClient.HEADER_CONTENT_TYPE,
 				AEMHeadlessClient.CONTENT_TYPE_JSON);
-		verify(httpURLConnection, times(1)).setRequestProperty(AEMHeadlessClient.HEADER_AUTHORIZATION, "test");
+		verify(httpURLConnection).setRequestProperty(AEMHeadlessClient.HEADER_AUTHORIZATION, "test");
+
+		verify(httpURLConnection).setConnectTimeout(AEMHeadlessClient.DEFAULT_TIMEOUT);
+		verify(httpURLConnection).setReadTimeout(AEMHeadlessClient.DEFAULT_TIMEOUT);
 
 	}
 
