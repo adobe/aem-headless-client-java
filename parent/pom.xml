@@ -57,7 +57,7 @@
 		<sling.password>admin</sling.password>
 		<slf4j.version>1.7.6</slf4j.version>
 		<jacoco.version>0.8.3</jacoco.version>
-		<java.version>11</java.version>
+		<java.version>1.8</java.version>
 		<mockitio.version>2.24.5</mockitio.version>
 	</properties>
 

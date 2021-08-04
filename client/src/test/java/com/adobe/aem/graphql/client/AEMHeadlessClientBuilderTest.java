@@ -32,6 +32,8 @@ class AEMHeadlessClientBuilderTest {
 				.endpoint("http://host:1234").build();
 		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Basic dXNlcjpwYXNzd29yZA==", client.getAuthorizationHeader());
+		assertEquals(AEMHeadlessClient.DEFAULT_TIMEOUT, client.getConnectTimeout());
+		assertEquals(AEMHeadlessClient.DEFAULT_TIMEOUT, client.getReadTimeout());
 	}
 
 	@Test
@@ -40,6 +42,14 @@ class AEMHeadlessClientBuilderTest {
 				.build();
 		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Bearer token", client.getAuthorizationHeader());
+	}
+
+	@Test
+	void testBuilderSetTimeouts() throws URISyntaxException {
+		AEMHeadlessClient client = AEMHeadlessClient.builder().endpoint(new URI("http://host:1234"))
+				.connectTimeout(1000).readTimeout(2000).build();
+		assertEquals(1000, client.getConnectTimeout());
+		assertEquals(2000, client.getReadTimeout());
 	}
 
 	@Test

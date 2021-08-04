@@ -53,6 +53,17 @@ AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
    .build();
 ```
 
+To create a client with explicitly set timeouts:
+
+```java
+AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
+   .endpoint("http://localhost:4503")
+   .connectTimeout(10000)
+   .readTimeout(30000)
+   .build();
+```
+
+If timeouts are not set explicitly a default of 15 seconds is used. To disable timeouts (not recommended) use the value `0`.
 
 ### Using Authorization
 
@@ -70,22 +81,6 @@ AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
    .endpoint(new URI("http://localhost:4503/content/graphql-custom"))
    .tokenAuth("token")
    .build();
-```
-
-### Using a self-configured Http Client
-
-It is possible to use an own http client which e.g. allows to configure custom timeouts: 
-
-```java
-import java.net.http.HttpClient
-...
-
-HttpClient httpClient = HttpClient.newBuilder()
-             .connectTimeout(Duration.ofMinutes(2))
-             .build();
-AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder()
-				.endpoint("http://localhost:4502")
-				.httpClient(httpClient).build();   
 ```
 
 

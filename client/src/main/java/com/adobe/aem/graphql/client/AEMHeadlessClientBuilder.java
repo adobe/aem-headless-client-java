@@ -17,8 +17,6 @@ package com.adobe.aem.graphql.client;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.http.HttpClient;
-import java.net.http.HttpClient.Redirect;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -76,7 +74,7 @@ public class AEMHeadlessClientBuilder {
 	 */
 	public @NotNull AEMHeadlessClientBuilder basicAuth(@NotNull String user, @NotNull String password) {
 		assertNotSealed();
-		if(headlessClient.getAuthorizationHeader() != null) {
+		if (headlessClient.getAuthorizationHeader() != null) {
 			throw new IllegalStateException("Authentication is already configured");
 		}
 		headlessClient.setAuthorizationHeader(AEMHeadlessClient.basicAuthHeaderVal(user, password));
@@ -91,7 +89,7 @@ public class AEMHeadlessClientBuilder {
 	 */
 	public @NotNull AEMHeadlessClientBuilder tokenAuth(@NotNull String token) {
 		assertNotSealed();
-		if(headlessClient.getAuthorizationHeader() != null) {
+		if (headlessClient.getAuthorizationHeader() != null) {
 			throw new IllegalStateException("Authentication is already configured");
 		}
 		headlessClient.setAuthorizationHeader(AEMHeadlessClient.tokenAuthHeaderVal(token));
@@ -99,29 +97,33 @@ public class AEMHeadlessClientBuilder {
 	}
 
 	/**
-	 * Sets the http client to be used.
+	 * Configures the connect timeout.
 	 * 
-	 * @param httpClient the custom configured http client to be used.
+	 * @param connectTimeout the connect timeout
 	 * @return the builder
 	 */
-	public @NotNull AEMHeadlessClientBuilder httpClient(@NotNull HttpClient httpClient) {
+	public @NotNull AEMHeadlessClientBuilder connectTimeout(int connectTimeout) {
 		assertNotSealed();
-		headlessClient.setHttpClient(httpClient);
+		headlessClient.setConnectTimeout(connectTimeout);
+		return this;
+	}
+
+	/**
+	 * Configures the read timeout.
+	 * 
+	 * @param readTimeout the connect timeout
+	 * @return the builder
+	 */
+	public @NotNull AEMHeadlessClientBuilder readTimeout(int readTimeout) {
+		assertNotSealed();
+		headlessClient.setReadTimeout(readTimeout);
 		return this;
 	}
 
 	public @NotNull AEMHeadlessClient build() {
 		assertNotSealed();
-		if (headlessClient.getHttpClient() == null) {
-			httpClient(buildDefaultHttpClient());
-		}
 		sealed = true;
 		return headlessClient;
-	}
-
-	private HttpClient buildDefaultHttpClient() {
-		return HttpClient.newBuilder().connectTimeout(AEMHeadlessClient.CONNECTION_TIMEOUT_DEFAULT)
-				.followRedirects(Redirect.NORMAL).build();
 	}
 
 	private void assertNotSealed() {
