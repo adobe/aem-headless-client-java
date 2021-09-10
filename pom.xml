@@ -19,13 +19,59 @@
 
     <groupId>com.adobe.aem.headless</groupId>
     <artifactId>aem-headless-client-reactor</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>AEM GraphQL Headless Client Reactor</name>
+    <description>Headless client to simplify usage of AEM's GraphQL API from Java and Android applications</description>
+
+    <url>https://github.com/adobe/aem-headless-client-java</url>
+    <organization>
+        <name>Adobe</name>
+        <url>https://www.adobe.com/</url>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Adobe AEM Sites Team</name>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/adobe/aem-headless-client-java.git</connection>
+        <developerConnection>scm:git:https://github.com/adobe/aem-headless-client-java.git</developerConnection>
+        <url>https://github.com/adobe/aem-headless-client-java/tree/main</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <modules>
         <module>parent</module>
         <module>client</module>
     </modules>
+
+    <!-- Deploy to the Maven Repositories using WebDAV URLs. This enables abstracting 
+        the real location of the repositories and better access control. Finally 
+        it mirrors read and write operations through the same mechanism. NOTE: To 
+        use these dav: URLs, the WebDAV extension to Maven Wagon must be declared 
+        in the build section above. -->
+    <distributionManagement>
+        <repository>
+            <id>${releaseRepository-Id}</id>
+            <url>${releaseRepository-URL}</url>
+        </repository>
+        <snapshotRepository>
+            <id>${snapshotRepository-Id}</id>
+            <url>${snapshotRepository-URL}</url>
+            <uniqueVersion>false</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
+
 </project>
