@@ -19,7 +19,7 @@
 
     <groupId>com.adobe.aem.headless</groupId>
     <artifactId>aem-headless-client-reactor</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>0.8.0</version>
     <packaging>pom</packaging>
 
     <name>AEM GraphQL Headless Client Reactor</name>
@@ -49,7 +49,7 @@
         <connection>scm:git:https://github.com/adobe/aem-headless-client-java.git</connection>
         <developerConnection>scm:git:https://github.com/adobe/aem-headless-client-java.git</developerConnection>
         <url>https://github.com/adobe/aem-headless-client-java/tree/main</url>
-        <tag>HEAD</tag>
+        <tag>aem-headless-client-reactor-0.8.0</tag>
     </scm>
 
     <modules>
