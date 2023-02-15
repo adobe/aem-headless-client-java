@@ -27,7 +27,10 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 /**
  * The client {@link AEMHeadlessClient} returns this class for the operations
@@ -39,12 +42,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class GraphQlResponse {
 
 	private final JsonNode data;
+	private final ArrayNode items;
 	private final List<Error> errors;
 
 	GraphQlResponse(JsonNode response) {
-		super();
-		this.data = response.get(JSON_KEY_DATA);
 		this.errors = readErrors(response);
+		this.data = response.get(JSON_KEY_DATA);
+		this.items = readItems();
 	}
 
 	/**
@@ -70,6 +74,46 @@ public class GraphQlResponse {
 	 */
 	public @Nullable JsonNode getData() {
 		return data;
+	}
+
+	/**
+	 * Returns the items in AEM GraphQL response structure
+	 * 
+	 * @return the response items if found at JSON path "data" -> "...List" ->
+	 *         "items" or null if no items could be found in response.
+	 */
+	public @Nullable ArrayNode getItems() {
+		return items;
+	}
+
+	/**
+	 * Gets list of items mapped to given POJJO class. Jackson annotations can be
+	 * used for configuration of the mapping if necessary.
+	 * 
+	 * @param <T>   the type of the items returned
+	 * @param clazz the class of the items returned
+	 * @return the list of items
+	 */
+	public @Nullable <T> List<T> getItems(Class<T> clazz) {
+
+		ObjectMapper mapper = new ObjectMapper();
+
+		List<T> result = new ArrayList<>();
+		for (JsonNode jsonNode : getItems()) {
+			try {
+				result.add(mapper.treeToValue(jsonNode, clazz));
+			} catch (JsonProcessingException | IllegalArgumentException e) {
+				throw new IllegalStateException("Could not convert item " + jsonNode + " to class " + clazz, e);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * @return true if the result has items in the AEM GraphQL response structure.
+	 */
+	public boolean hasItems() {
+		return this.items != null && !((ArrayNode) this.items).isEmpty();
 	}
 
 	/**
@@ -99,6 +143,35 @@ public class GraphQlResponse {
 		} else {
 			return null;
 		}
+	}
+
+	private ArrayNode readItems() {
+
+		ArrayNode itemsArray = null;
+		if (data != null) {
+			Iterator<JsonNode> elements = data.elements();
+			while (elements.hasNext()) {
+				JsonNode resultNode = elements.next();
+				if (resultNode.has(AEMHeadlessClient.JSON_KEY_ITEMS)) {
+					JsonNode jsonNodeItems = resultNode.get(AEMHeadlessClient.JSON_KEY_ITEMS);
+					if (jsonNodeItems.isArray()) {
+						itemsArray = (ArrayNode) jsonNodeItems;
+					}
+					break;
+				}
+				if (resultNode.has(AEMHeadlessClient.JSON_KEY_EDGES)) {
+					JsonNode edgesNode = resultNode.get(AEMHeadlessClient.JSON_KEY_EDGES);
+					ArrayNode resultArrayNode = new ObjectMapper().createArrayNode();
+					for (JsonNode node : (ArrayNode) edgesNode) {
+						resultArrayNode.add(node.get(AEMHeadlessClient.JSON_KEY_NODE));
+					}
+					itemsArray = resultArrayNode;
+					break;
+				}
+			}
+		}
+
+		return itemsArray;
 	}
 
 	String getErrorsString() {
@@ -138,5 +211,4 @@ public class GraphQlResponse {
 		}
 
 	}
-
 }

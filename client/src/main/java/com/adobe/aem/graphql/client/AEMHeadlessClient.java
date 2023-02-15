@@ -68,6 +68,11 @@ public class AEMHeadlessClient {
 	static final String JSON_KEY_SHORT_FORM = "shortForm";
 	static final String JSON_KEY_SHORT_PATH = "shortPath";
 	static final String JSON_KEY_DATA = "data";
+	static final String JSON_KEY_ITEMS = "items";
+	static final String JSON_KEY_EDGES = "edges";
+	static final String JSON_KEY_NODE = "node";
+	static final String JSON_KEY_PAGE_INFO = "pageInfo";
+
 	static final String JSON_KEY_ERRORS = "errors";
 	static final String JSON_KEY_MESSAGE = "message";
 	static final String JSON_KEY_PATH = "path";
