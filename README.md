@@ -12,7 +12,7 @@ Add the following dependency to your classpath:
 <dependency>
 	<groupId>com.adobe.aem.headless</groupId>
 	<artifactId>aem-headless-client-java</artifactId>
-	<version>1.0.0</version>
+	<version>0.8.0</version>
 </dependency>
 ```
 
