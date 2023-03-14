@@ -131,18 +131,6 @@ public class AEMHeadlessClient {
 	}
 
 	/**
-	 * Runs the query with the paging variables. Expects 'offset' and 'limit' to exist as query variables, {@link GraphQlQueryBuilder} helps creating query in the correct format.
-	 * 
-	 * @param query the query that has to declare the variables $next and $after 
-	 * @param offset the paging offset to run the query with
-	 * @param limit the paging limit to run the query with
-	 * @return
-	 */
-	public @NotNull GraphQlResponse runQuery(@NotNull String query, int offset, int limit) {
-		return runQuery(query, GraphQlQueryVars.create().offset(offset).limit(limit));
-	}
-
-	/**
 	 * Runs the given GraphQL query on server.
 	 * 
 	 * @param query     the query to execute
@@ -162,6 +150,90 @@ public class AEMHeadlessClient {
 			throw new AEMHeadlessClientException(graphQlResponse);
 		}
 		return graphQlResponse;
+	}
+	
+	/**
+	 * Runs the given {@link GraphQlQuery} on server.
+	 * 
+	 * @param query the query that has to declare the variables $next and $after 
+	 * @param offset the paging offset to run the query with
+	 * @param limit the paging limit to run the query with
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query) {
+		return runQuery(query.generateQuery(), GraphQlQueryVars.create());
+	}
+
+	/**
+	 * Runs the given {@link GraphQlQuery} on server with given variables.
+	 * 
+	 * @param query the query that has to declare the variables $next and $after 
+	 * @param variables variables for the query
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, Map<String, Object> variables) {
+		return runQuery(query.generateQuery(), GraphQlQueryVars.create(variables));
+	}
+	
+	/**
+	 * Runs the query with the paging variables. Expects 'offset' and 'limit' to exist as query variables, {@link GraphQlQueryBuilder} helps creating query in the correct format.
+	 * 
+	 * @param query the query that has to declare the variables $next and $after 
+	 * @param offset the paging offset to run the query with
+	 * @param limit the paging limit to run the query with
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, int offset, int limit) {
+		return runQuery(query, GraphQlQueryVars.create().offset(offset).limit(limit));
+	}
+	
+	/**
+	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after.
+	 * 
+	 * @param query the query that defines the query variables $next and $after 
+	 * @param pageSize the page size for the cursor
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull GraphQlQuery query, int pageSize) {
+		return new GraphQlResponse.PagingCursorImpl(query, pageSize, GraphQlQueryVars.create(), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
+	 * 
+	 * @param query query the query that defines the query variables $next and $after 
+	 * @param pageSize pageSize the page size for the cursor
+	 * @param variables additional variables as required by query
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull GraphQlQuery query, int pageSize, Map<String, Object> variables) {
+		return new GraphQlResponse.PagingCursorImpl(query, pageSize, GraphQlQueryVars.create(variables), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. 
+	 * 
+	 * @param persistedQuery persisted query that defines the query variables $next and $after 
+	 * @param pageSize pageSize the page size for the cursor
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize) {
+		return new GraphQlResponse.PagingCursorImpl(persistedQuery, pageSize, GraphQlQueryVars.create(), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
+	 * 
+	 * @param persistedQuery persisted query that defines the query variables $next and $after 
+	 * @param pageSize pageSize the page size for the cursor
+	 * @param variables additional variables as required by persisted query
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize, Map<String, Object> variables) {
+		return new GraphQlResponse.PagingCursorImpl(persistedQuery, pageSize, GraphQlQueryVars.create(variables), this);
 	}
 	
 	/**
@@ -285,53 +357,6 @@ public class AEMHeadlessClient {
 		JsonNode responseJson = stringToJson(responseStr);
 		return new PersistedQuery(responseJson.get(JSON_KEY_SHORT_PATH).asText(),
 				responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
-	}
-	
-
-	/**
-	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after.
-	 * 
-	 * @param query the query that defines the query variables $next and $after 
-	 * @param pageSize the page size for the cursor
-	 * @return a {@link GraphQlPagingCursor}
-	 */
-	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull String query, int pageSize) {
-		return new GraphQlResponse.PagingCursorImpl(query, false, pageSize, GraphQlQueryVars.create(), this);
-	}
-
-	/**
-	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
-	 * 
-	 * @param query query the query that defines the query variables $next and $after 
-	 * @param pageSize pageSize the page size for the cursor
-	 * @param variables additional variables as required by query
-	 * @return a {@link GraphQlPagingCursor}
-	 */
-	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull String query, int pageSize, Map<String, Object> variables) {
-		return new GraphQlResponse.PagingCursorImpl(query, false, pageSize, GraphQlQueryVars.create(variables), this);
-	}
-
-	/**
-	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. 
-	 * 
-	 * @param persistedQuery persisted query that defines the query variables $next and $after 
-	 * @param pageSize pageSize the page size for the cursor
-	 * @return a {@link GraphQlPagingCursor}
-	 */
-	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize) {
-		return new GraphQlResponse.PagingCursorImpl(persistedQuery.getShortPath(), true, pageSize, GraphQlQueryVars.create(), this);
-	}
-
-	/**
-	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
-	 * 
-	 * @param persistedQuery persisted query that defines the query variables $next and $after 
-	 * @param pageSize pageSize the page size for the cursor
-	 * @param variables additional variables as required by persisted query
-	 * @return a {@link GraphQlPagingCursor}
-	 */
-	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize, Map<String, Object> variables) {
-		return new GraphQlResponse.PagingCursorImpl(persistedQuery.getShortPath(), true, pageSize, GraphQlQueryVars.create(variables), this);
 	}
 	
 	URI getEndpoint() {

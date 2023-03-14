@@ -218,17 +218,26 @@ public class GraphQlResponse {
 
 		private final AEMHeadlessClient client;
 		
-		private boolean hasMore = true;
+		private Boolean hasMore = null;
+		private GraphQlResponse firstGraphQlResponse = null;
 		private String endCursor;
 
-		PagingCursorImpl(@NotNull String query, boolean isPersistedQuery, int pageSize, GraphQlQueryVars variables, AEMHeadlessClient client) {
-			this.query = !isPersistedQuery ? query : null;
-			this.persistedQueryShortPath = isPersistedQuery ? query : null;
+		PagingCursorImpl(@NotNull GraphQlQuery query, int pageSize, GraphQlQueryVars variables, AEMHeadlessClient client) {
+			this.query = query.generateQuery();
+			this.persistedQueryShortPath = null;
 			this.pageSize = pageSize;
 			this.variables = variables;
 			this.client = client;
 		}
-
+		
+		PagingCursorImpl(@NotNull PersistedQuery query, int pageSize, GraphQlQueryVars variables, AEMHeadlessClient client) {
+			this.query = null;
+			this.persistedQueryShortPath = query.getShortPath();
+			this.pageSize = pageSize;
+			this.variables = variables;
+			this.client = client;
+		}
+		
 		@Override
 		public int getPageSize() {
 			return pageSize;
@@ -236,16 +245,31 @@ public class GraphQlResponse {
 
 		@Override
 		public boolean hasNext() {
+			if(hasMore == null) {
+				firstGraphQlResponse = nextInternal();
+			}
 			return hasMore;
 		}	
 		
 		@Override
 		public GraphQlResponse next() {
 			
+			if(firstGraphQlResponse != null) {
+				try {
+					return firstGraphQlResponse;
+				} finally { 
+					firstGraphQlResponse = null;
+				}
+			}
+			
 			if(!hasMore) {
 				throw new IllegalStateException("There are no more results availalbe");
 			}
-			
+
+			return nextInternal();
+		}
+
+		private GraphQlResponse nextInternal() {
 			GraphQlQueryVars effectiveVars = GraphQlQueryVars.create(variables).first(pageSize).after(endCursor);
 
 			GraphQlResponse response;
@@ -261,7 +285,6 @@ public class GraphQlResponse {
 			
 			hasMore = response.pageInfo.get(AEMHeadlessClient.JSON_KEY_HAS_NEXT_PAGE).asBoolean();
 			endCursor = response.pageInfo.get(AEMHeadlessClient.JSON_KEY_END_CURSOR).asText();
-			
 			return response;
 		}
 	}
