@@ -21,11 +21,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.jetbrains.annotations.NotNull;
+
 import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Field;
 
 /** Represents a GraphQl query to be used with {@link AEMHeadlessClient}. */
 public class GraphQlQuery {
 
+	/**
+	 * Builder that allows to configure all available options of the
+	 * {@code AEMHeadlessQuery}
+	 * 
+	 * @return builder
+	 * 
+	 */
+	public static @NotNull GraphQlQueryBuilder builder() {
+		return new GraphQlQueryBuilder();
+	}
+	
 	public enum SortingOrder {
 		ASC, DESC
 	}

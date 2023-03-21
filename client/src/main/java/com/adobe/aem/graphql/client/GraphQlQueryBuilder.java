@@ -32,17 +32,6 @@ import com.adobe.aem.graphql.client.GraphQlQuery.SortingOrder;
 public class GraphQlQueryBuilder {
 
 	/**
-	 * Builder that allows to configure all available options of the
-	 * {@code AEMHeadlessQuery}
-	 * 
-	 * @return builder
-	 * 
-	 */
-	public static @NotNull GraphQlQueryBuilder builder() {
-		return new GraphQlQueryBuilder();
-	}
-
-	/**
 	 * Create sub-selection (allowing for deep structures). Use
 	 * {@link SubSelection#field(String)} and
 	 * {@link SubSelection#subSelection(String)} to create deep structures.
