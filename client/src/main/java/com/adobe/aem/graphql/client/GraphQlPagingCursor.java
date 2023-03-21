@@ -16,11 +16,12 @@
 package com.adobe.aem.graphql.client;
 
 /**
- * Allows to use paging for GraphQl queries, create a cursor using {@link AEMHeadlessClient#createCursor(String, int)}.
+ * Allows to use paging for GraphQl queries, create a cursor using
+ * {@link AEMHeadlessClient#createCursor(String, int)}.
  *
  */
 public interface GraphQlPagingCursor {
-	
+
 	/**
 	 * Returns the next page.
 	 * 
@@ -34,7 +35,7 @@ public interface GraphQlPagingCursor {
 	 * @return true if a next page exists
 	 */
 	public boolean hasNext();
-	
+
 	/**
 	 * 
 	 * @return the page size used by this cursor

@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 
 import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Field;
 
+/** Represents a GraphQl query to be used with {@link AEMHeadlessClient}. */
 public class GraphQlQuery {
 
 	public static class SortBy {
@@ -137,8 +138,7 @@ public class GraphQlQuery {
 		}
 		buf.append(" {\n");
 
-		String fieldsStr = "      "
-				+ fields.stream().map(Field::toQueryFragment).collect(Collectors.joining("\n      ")) + "\n";
+		String fieldsStr = "      " + fields.stream().map(Field::toQueryFragment).collect(Collectors.joining("\n      ")) + "\n";
 		if (paginationType.isCursor()) {
 			buf.append("    edges { node {\n" + fieldsStr + "    }}\n    pageInfo { hasNextPage endCursor }\n");
 		} else {

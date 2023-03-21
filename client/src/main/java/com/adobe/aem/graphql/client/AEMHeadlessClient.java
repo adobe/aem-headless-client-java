@@ -155,9 +155,9 @@ public class AEMHeadlessClient {
 	/**
 	 * Runs the given {@link GraphQlQuery} on server.
 	 * 
-	 * @param query the query that has to declare the variables $next and $after 
+	 * @param query  the query that has to declare the variables $next and $after
 	 * @param offset the paging offset to run the query with
-	 * @param limit the paging limit to run the query with
+	 * @param limit  the paging limit to run the query with
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */
@@ -168,7 +168,7 @@ public class AEMHeadlessClient {
 	/**
 	 * Runs the given {@link GraphQlQuery} on server with given variables.
 	 * 
-	 * @param query the query that has to declare the variables $next and $after 
+	 * @param query     the query that has to declare the variables $next and $after
 	 * @param variables variables for the query
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
@@ -176,24 +176,27 @@ public class AEMHeadlessClient {
 	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, Map<String, Object> variables) {
 		return runQuery(query.generateQuery(), GraphQlQueryVars.create(variables));
 	}
-	
+
 	/**
-	 * Runs the query with the paging variables. Expects 'offset' and 'limit' to exist as query variables, {@link GraphQlQueryBuilder} helps creating query in the correct format.
+	 * Runs the query with the paging variables. Expects 'offset' and 'limit' to
+	 * exist as query variables, {@link GraphQlQueryBuilder} helps creating query in
+	 * the correct format.
 	 * 
-	 * @param query the query that has to declare the variables $next and $after 
+	 * @param query  the query that has to declare the variables $next and $after
 	 * @param offset the paging offset to run the query with
-	 * @param limit the paging limit to run the query with
+	 * @param limit  the paging limit to run the query with
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */
 	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, int offset, int limit) {
 		return runQuery(query, GraphQlQueryVars.create().offset(offset).limit(limit));
 	}
-	
+
 	/**
-	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after.
+	 * Create cursor to retrieve paged responses. By convention, the query needs to
+	 * define the query variables $next and $after.
 	 * 
-	 * @param query the query that defines the query variables $next and $after 
+	 * @param query    the query that defines the query variables $next and $after
 	 * @param pageSize the page size for the cursor
 	 * @return a {@link GraphQlPagingCursor}
 	 */
@@ -202,10 +205,13 @@ public class AEMHeadlessClient {
 	}
 
 	/**
-	 * Create cursor to retrieve paged responses. By convention, the query needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
+	 * Create cursor to retrieve paged responses. By convention, the query needs to
+	 * define the query variables $next and $after. Allows to specify additional
+	 * variables the query requires.
 	 * 
-	 * @param query query the query that defines the query variables $next and $after 
-	 * @param pageSize pageSize the page size for the cursor
+	 * @param query     query the query that defines the query variables $next and
+	 *                  $after
+	 * @param pageSize  pageSize the page size for the cursor
 	 * @param variables additional variables as required by query
 	 * @return a {@link GraphQlPagingCursor}
 	 */

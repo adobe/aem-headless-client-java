@@ -52,7 +52,7 @@ public class GraphQlResponse {
 		this.errors = readErrors(response);
 		this.items = loadItems();
 	}
-	
+
 	private List<Error> readErrors(JsonNode response) {
 		if (response.has(JSON_KEY_ERRORS)) {
 			List<Error> errors = new ArrayList<>();
@@ -66,10 +66,10 @@ public class GraphQlResponse {
 			return null;
 		}
 	}
-	
+
 	private JsonNode loadItems() {
 		JsonNode items = null;
-		if(data != null) {
+		if (data != null) {
 			Iterator<JsonNode> elements = data.elements();
 			while (elements.hasNext()) {
 				JsonNode resultNode = elements.next();
@@ -87,11 +87,10 @@ public class GraphQlResponse {
 					pageInfo = resultNode.get(AEMHeadlessClient.JSON_KEY_PAGE_INFO);
 					break;
 				}
-			}			
+			}
 		}
 		return items;
 	}
-
 
 	/**
 	 * @return the String representation of the response.
@@ -208,7 +207,7 @@ public class GraphQlResponse {
 		}
 
 	}
-	
+
 	static class PagingCursorImpl implements GraphQlPagingCursor {
 
 		private final String query;
@@ -217,7 +216,7 @@ public class GraphQlResponse {
 		private final GraphQlQueryVars variables;
 
 		private final AEMHeadlessClient client;
-		
+
 		private Boolean hasMore = null;
 		private GraphQlResponse firstGraphQlResponse = null;
 		private String endCursor;
@@ -229,7 +228,7 @@ public class GraphQlResponse {
 			this.variables = variables;
 			this.client = client;
 		}
-		
+
 		PagingCursorImpl(@NotNull PersistedQuery query, int pageSize, GraphQlQueryVars variables, AEMHeadlessClient client) {
 			this.query = null;
 			this.persistedQueryShortPath = query.getShortPath();
@@ -237,7 +236,7 @@ public class GraphQlResponse {
 			this.variables = variables;
 			this.client = client;
 		}
-		
+
 		@Override
 		public int getPageSize() {
 			return pageSize;
@@ -245,24 +244,24 @@ public class GraphQlResponse {
 
 		@Override
 		public boolean hasNext() {
-			if(hasMore == null) {
+			if (hasMore == null) {
 				firstGraphQlResponse = nextInternal();
 			}
 			return hasMore;
-		}	
-		
+		}
+
 		@Override
 		public GraphQlResponse next() {
-			
-			if(firstGraphQlResponse != null) {
+
+			if (firstGraphQlResponse != null) {
 				try {
 					return firstGraphQlResponse;
-				} finally { 
+				} finally {
 					firstGraphQlResponse = null;
 				}
 			}
-			
-			if(!hasMore) {
+
+			if (!hasMore) {
 				throw new IllegalStateException("There are no more results availalbe");
 			}
 
@@ -273,16 +272,16 @@ public class GraphQlResponse {
 			GraphQlQueryVars effectiveVars = GraphQlQueryVars.create(variables).first(pageSize).after(endCursor);
 
 			GraphQlResponse response;
-			if(query != null) {
-				response = client.runQuery(query, effectiveVars);	
+			if (query != null) {
+				response = client.runQuery(query, effectiveVars);
 			} else {
 				response = client.runPersistedQuery(persistedQueryShortPath, effectiveVars);
 			}
-			
-			if(response.pageInfo == null) {
+
+			if (response.pageInfo == null) {
 				throw new IllegalStateException("Query does not support paging with a cursor, could not find 'pageInfo' in response data:\n" + response.data);
 			}
-			
+
 			hasMore = response.pageInfo.get(AEMHeadlessClient.JSON_KEY_HAS_NEXT_PAGE).asBoolean();
 			endCursor = response.pageInfo.get(AEMHeadlessClient.JSON_KEY_END_CURSOR).asText();
 			return response;

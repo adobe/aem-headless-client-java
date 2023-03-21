@@ -43,7 +43,9 @@ public class GraphQlQueryBuilder {
 	}
 
 	/**
-	 * Create sub-selection (allowing for deep structures). Use {@link SubSelection#field(String)} and {@link SubSelection#subSelection(String)} to create deep structures.
+	 * Create sub-selection (allowing for deep structures). Use
+	 * {@link SubSelection#field(String)} and
+	 * {@link SubSelection#subSelection(String)} to create deep structures.
 	 * 
 	 * @return the sub selectioon
 	 * 
@@ -93,8 +95,7 @@ public class GraphQlQueryBuilder {
 	}
 
 	public GraphQlQueryBuilder sortBy(@NotNull String... sortByFieldWithOrderClauses) {
-		Arrays.asList(sortByFieldWithOrderClauses).stream()
-				.forEach(sortByFieldWithOrder -> headlessQuery.addSorting(new SortBy(sortByFieldWithOrder)));
+		Arrays.asList(sortByFieldWithOrderClauses).stream().forEach(sortByFieldWithOrder -> headlessQuery.addSorting(new SortBy(sortByFieldWithOrder)));
 		return this;
 	}
 
@@ -157,8 +158,7 @@ public class GraphQlQueryBuilder {
 
 		@Override
 		public String toQueryFragment() {
-			return fieldName + "{"
-					+ subSelectionFields.stream().map(Field::toQueryFragment).collect(Collectors.joining(" ")) + "}";
+			return fieldName + "{" + subSelectionFields.stream().map(Field::toQueryFragment).collect(Collectors.joining(" ")) + "}";
 		}
 	}
 
