@@ -65,7 +65,7 @@ public class GraphQlQueryBuilder {
 	}
 
 	public GraphQlQueryBuilder contentFragmentModelName(@NotNull String name) {
-		headlessQuery.setContentFragementModelName(name);
+		headlessQuery.setContentFragmentModelName(name);
 		return this;
 	}
 

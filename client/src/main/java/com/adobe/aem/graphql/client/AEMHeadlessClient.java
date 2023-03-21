@@ -156,8 +156,6 @@ public class AEMHeadlessClient {
 	 * Runs the given {@link GraphQlQuery} on server.
 	 * 
 	 * @param query  the query that has to declare the variables $next and $after
-	 * @param offset the paging offset to run the query with
-	 * @param limit  the paging limit to run the query with
 	 * @return the {@link GraphQlResponse}
 	 * @throws AEMHeadlessClientException if the query cannot be executed
 	 */

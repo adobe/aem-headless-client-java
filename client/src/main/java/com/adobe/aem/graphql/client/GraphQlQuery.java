@@ -26,24 +26,6 @@ import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Field;
 /** Represents a GraphQl query to be used with {@link AEMHeadlessClient}. */
 public class GraphQlQuery {
 
-	public static class SortBy {
-		final String field;
-		final SortingOrder sortByOrder;
-
-		public SortBy(String field, SortingOrder sortByOrder) {
-			this.field = field;
-			this.sortByOrder = sortByOrder;
-		}
-
-		public SortBy(String fieldWithSortingOrder) {
-			String[] fieldAndSortingOrder = fieldWithSortingOrder.split(" ", 2);
-			this.field = fieldAndSortingOrder[0];
-			this.sortByOrder = fieldAndSortingOrder.length == 2
-					? SortingOrder.valueOf(fieldAndSortingOrder[1].toUpperCase())
-					: SortingOrder.ASC;
-		}
-	}
-
 	public enum SortingOrder {
 		ASC, DESC
 	}
@@ -53,6 +35,24 @@ public class GraphQlQuery {
 
 		boolean isCursor() {
 			return this == CURSOR;
+		}
+	}
+
+	static class SortBy {
+		final String field;
+		final SortingOrder sortByOrder;
+
+		SortBy(String field, SortingOrder sortByOrder) {
+			this.field = field;
+			this.sortByOrder = sortByOrder;
+		}
+
+		SortBy(String fieldWithSortingOrder) {
+			String[] fieldAndSortingOrder = fieldWithSortingOrder.split(" ", 2);
+			this.field = fieldAndSortingOrder[0];
+			this.sortByOrder = fieldAndSortingOrder.length == 2
+					? SortingOrder.valueOf(fieldAndSortingOrder[1].toUpperCase())
+					: SortingOrder.ASC;
 		}
 	}
 	
@@ -65,7 +65,7 @@ public class GraphQlQuery {
 		// used by builder only
 	}
 
-	void setContentFragementModelName(String contentFragementModelName) {
+	void setContentFragmentModelName(String contentFragementModelName) {
 		this.contentFragementModelName = contentFragementModelName;
 	}
 
