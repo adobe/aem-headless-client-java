@@ -337,9 +337,9 @@ public class AEMHeadlessClient {
 	private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
 		try {
 			return ";" + entry.getKey() + "="
-					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.ISO_8859_1.name());
+					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.UTF_8.name());
 		} catch (UnsupportedEncodingException e) {
-			throw new IllegalStateException("Encoding " + StandardCharsets.ISO_8859_1 + " not supported", e);
+			throw new IllegalStateException("Encoding " + StandardCharsets.UTF_8 + " not supported", e);
 		}
 	}
 
@@ -412,6 +412,7 @@ public class AEMHeadlessClient {
 
 	static String basicAuthHeaderVal(String username, String password) {
 		try {
+			// encoding is in line with server at https://github.com/apache/sling-org-apache-sling-auth-core/blob/eb8be45e93e35d969302d4c671f2b092aed22791/src/main/java/org/apache/sling/auth/core/impl/HttpBasicAuthenticationHandler.java#L334
 			return AUTH_BASIC + SPACE + Base64.getEncoder()
 					.encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1.name()));
 		} catch (UnsupportedEncodingException e) {
