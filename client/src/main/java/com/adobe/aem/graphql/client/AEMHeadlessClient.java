@@ -45,7 +45,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class AEMHeadlessClient {
 
-	static final String ENDPOINT_DEFAULT_GRAPHQL = "/content/graphql/global/endpoint.json";
+	static final String ENDPOINT_DEFAULT_GRAPHQL = "/content/cq:graphql/global/endpoint.json";
+
 	static final String ENDPOINT_PERSISTED_QUERIES_PERSIST = "/graphql/persist.json";
 	static final String ENDPOINT_PERSISTED_QUERIES_EXECUTE = "/graphql/execute.json";
 	static final String ENDPOINT_PERSISTED_QUERIES_LIST = "/graphql/list.json/";
@@ -72,7 +73,9 @@ public class AEMHeadlessClient {
 	static final String JSON_KEY_EDGES = "edges";
 	static final String JSON_KEY_NODE = "node";
 	static final String JSON_KEY_PAGE_INFO = "pageInfo";
-
+	static final String JSON_KEY_HAS_NEXT_PAGE = "hasNextPage";
+	static final String JSON_KEY_END_CURSOR = "endCursor";
+	
 	static final String JSON_KEY_ERRORS = "errors";
 	static final String JSON_KEY_MESSAGE = "message";
 	static final String JSON_KEY_PATH = "path";
@@ -137,9 +140,9 @@ public class AEMHeadlessClient {
 	 */
 	public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
 
-		String queryStr = createQuery(query, variables);
+		String queryPayload = createQueryRequestPayload(query, variables);
 
-		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
+		String responseStr = executeRequest(endpoint, METHOD_POST, queryPayload, 200);
 
 		JsonNode responseJson = stringToJson(responseStr);
 		GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
@@ -148,7 +151,95 @@ public class AEMHeadlessClient {
 		}
 		return graphQlResponse;
 	}
+	
+	/**
+	 * Runs the given {@link GraphQlQuery} on server.
+	 * 
+	 * @param query  the query that has to declare the variables $next and $after
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query) {
+		return runQuery(query.generateQuery(), GraphQlQueryVars.create());
+	}
 
+	/**
+	 * Runs the given {@link GraphQlQuery} on server with given variables.
+	 * 
+	 * @param query     the query that has to declare the variables $next and $after
+	 * @param variables variables for the query
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, Map<String, Object> variables) {
+		return runQuery(query.generateQuery(), GraphQlQueryVars.create(variables));
+	}
+
+	/**
+	 * Runs the query with the paging variables. Expects 'offset' and 'limit' to
+	 * exist as query variables, {@link GraphQlQueryBuilder} helps creating query in
+	 * the correct format.
+	 * 
+	 * @param query  the query that has to declare the variables $next and $after
+	 * @param offset the paging offset to run the query with
+	 * @param limit  the paging limit to run the query with
+	 * @return the {@link GraphQlResponse}
+	 * @throws AEMHeadlessClientException if the query cannot be executed
+	 */
+	public @NotNull GraphQlResponse runQuery(@NotNull GraphQlQuery query, int offset, int limit) {
+		return runQuery(query, GraphQlQueryVars.create().offset(offset).limit(limit));
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses. By convention, the query needs to
+	 * define the query variables $next and $after.
+	 * 
+	 * @param query    the query that defines the query variables $next and $after
+	 * @param pageSize the page size for the cursor
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull GraphQlQuery query, int pageSize) {
+		return new GraphQlResponse.PagingCursorImpl(query, pageSize, GraphQlQueryVars.create(), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses. By convention, the query needs to
+	 * define the query variables $next and $after. Allows to specify additional
+	 * variables the query requires.
+	 * 
+	 * @param query     query the query that defines the query variables $next and
+	 *                  $after
+	 * @param pageSize  pageSize the page size for the cursor
+	 * @param variables additional variables as required by query
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull GraphQlQuery query, int pageSize, Map<String, Object> variables) {
+		return new GraphQlResponse.PagingCursorImpl(query, pageSize, GraphQlQueryVars.create(variables), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. 
+	 * 
+	 * @param persistedQuery persisted query that defines the query variables $next and $after 
+	 * @param pageSize pageSize the page size for the cursor
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize) {
+		return new GraphQlResponse.PagingCursorImpl(persistedQuery, pageSize, GraphQlQueryVars.create(), this);
+	}
+
+	/**
+	 * Create cursor to retrieve paged responses for a {@link PersistedQuery}. By convention, the {@link PersistedQuery} needs to define the query variables $next and $after. Allows to specify additional variables the query requires.
+	 * 
+	 * @param persistedQuery persisted query that defines the query variables $next and $after 
+	 * @param pageSize pageSize the page size for the cursor
+	 * @param variables additional variables as required by persisted query
+	 * @return a {@link GraphQlPagingCursor}
+	 */
+	public @NotNull GraphQlPagingCursor createPagingCursor(@NotNull PersistedQuery persistedQuery, int pageSize, Map<String, Object> variables) {
+		return new GraphQlResponse.PagingCursorImpl(persistedQuery, pageSize, GraphQlQueryVars.create(variables), this);
+	}
+	
 	/**
 	 * Lists all persisted queries for the given configuration name.
 	 * 
@@ -246,14 +337,14 @@ public class AEMHeadlessClient {
 	private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
 		try {
 			return ";" + entry.getKey() + "="
-					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.ISO_8859_1.name());
+					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.UTF_8.name());
 		} catch (UnsupportedEncodingException e) {
-			throw new IllegalStateException("Encoding " + StandardCharsets.ISO_8859_1 + " not supported", e);
+			throw new IllegalStateException("Encoding " + StandardCharsets.UTF_8 + " not supported", e);
 		}
 	}
 
 	/**
-	 * Adds a new persisted query on the server.
+	 * Adds a new persisted query on the server. Usually it is better to deploy persisted queries along with the code with filevault packages.
 	 * 
 	 * @param queryToPersist     the query
 	 * @param persistedQueryPath the path to persist the query, e.g.
@@ -271,7 +362,7 @@ public class AEMHeadlessClient {
 		return new PersistedQuery(responseJson.get(JSON_KEY_SHORT_PATH).asText(),
 				responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
 	}
-
+	
 	URI getEndpoint() {
 		return endpoint;
 	}
@@ -308,11 +399,12 @@ public class AEMHeadlessClient {
 		this.readTimeout = readTimeout;
 	}
 
-	String createQuery(String query, Map<String, Object> variables) {
+	String createQueryRequestPayload(String query, Map<String, Object> variables) {
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode queryNode = mapper.createObjectNode();
 		queryNode.put(JSON_KEY_QUERY, query);
 		if (variables != null) {
+			GraphQlQueryVars.checkQueryForVars(query, variables.keySet());
 			queryNode.set(JSON_KEY_VARIABLES, mapper.valueToTree(variables));
 		}
 		return queryNode.toString();
@@ -320,6 +412,7 @@ public class AEMHeadlessClient {
 
 	static String basicAuthHeaderVal(String username, String password) {
 		try {
+			// encoding is in line with server at https://github.com/apache/sling-org-apache-sling-auth-core/blob/eb8be45e93e35d969302d4c671f2b092aed22791/src/main/java/org/apache/sling/auth/core/impl/HttpBasicAuthenticationHandler.java#L334
 			return AUTH_BASIC + SPACE + Base64.getEncoder()
 					.encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1.name()));
 		} catch (UnsupportedEncodingException e) {
@@ -416,4 +509,5 @@ public class AEMHeadlessClient {
 	private static boolean isBlank(final CharSequence cs) {
 		return cs == null || cs.chars().allMatch(Character::isWhitespace);
 	}
+
 }

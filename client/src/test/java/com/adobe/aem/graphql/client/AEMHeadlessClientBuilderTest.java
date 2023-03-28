@@ -30,7 +30,7 @@ class AEMHeadlessClientBuilderTest {
 	void testBuilderBasicAuth() throws URISyntaxException {
 		AEMHeadlessClient client = AEMHeadlessClient.builder().basicAuth("user", "password")
 				.endpoint("http://host:1234").build();
-		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
+		assertEquals("http://host:1234/content/cq:graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Basic dXNlcjpwYXNzd29yZA==", client.getAuthorizationHeader());
 		assertEquals(AEMHeadlessClient.DEFAULT_TIMEOUT, client.getConnectTimeout());
 		assertEquals(AEMHeadlessClient.DEFAULT_TIMEOUT, client.getReadTimeout());
@@ -40,7 +40,7 @@ class AEMHeadlessClientBuilderTest {
 	void testBuilderTokenAuth() throws URISyntaxException {
 		AEMHeadlessClient client = AEMHeadlessClient.builder().tokenAuth("token").endpoint(new URI("http://host:1234"))
 				.build();
-		assertEquals("http://host:1234/content/graphql/global/endpoint.json", client.getEndpoint().toString());
+		assertEquals("http://host:1234/content/cq:graphql/global/endpoint.json", client.getEndpoint().toString());
 		assertEquals("Bearer token", client.getAuthorizationHeader());
 	}
 

@@ -21,6 +21,8 @@ import static com.adobe.aem.graphql.client.AEMHeadlessClient.JSON_KEY_PATH;
 import static com.adobe.aem.graphql.client.AEMHeadlessClient.JSON_KEY_QUERY;
 import static com.adobe.aem.graphql.client.AEMHeadlessClient.JSON_KEY_SHORT_FORM;
 
+import java.util.Arrays;
+
 import org.jetbrains.annotations.NotNull;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -41,10 +43,24 @@ public class PersistedQuery {
 				persistedQueryNode.get(JSON_KEY_DATA).get(JSON_KEY_QUERY).asText());
 	}
 
-	PersistedQuery(String shortPath, String longPath, String query) {
+	public PersistedQuery(String shortPath, String longPath, String query) {
 		this.shortPath = shortPath;
 		this.longPath = longPath;
 		this.query = query;
+	}
+
+	public PersistedQuery(String shortPath, String query) {
+		this.shortPath = shortPath;
+		String[] pathSegments = shortPath.split("\\/");
+		if(pathSegments.length !=3 ) {
+			throw new IllegalArgumentException("Persisted query path needs to start with a slash and have two path elements, e.g. /my-proj/my-query, actual short path was "+shortPath);
+		}
+		this.longPath = String.join("/", Arrays.asList(pathSegments[0], pathSegments[1], "settings", "graphql", "persistentQueries", pathSegments[2]));
+		this.query = query;
+	}
+	
+	public PersistedQuery(String shortPath) {
+		this(shortPath, null);
 	}
 
 	/**
