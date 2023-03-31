@@ -39,10 +39,17 @@ public class GraphQlQuery {
 		return new GraphQlQueryBuilder();
 	}
 	
+	/**
+	 * The sorting order for GraphQL queries. 
+	 *
+	 */
 	public enum SortingOrder {
 		ASC, DESC
 	}
 
+	/**
+	 * The pagination type for GraphQL queries. 
+	 */
 	public enum PaginationType {
 		NONE, CURSOR, OFFSET_LIMIT;
 

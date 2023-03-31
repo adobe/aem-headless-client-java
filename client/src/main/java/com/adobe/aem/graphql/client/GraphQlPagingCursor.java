@@ -17,7 +17,7 @@ package com.adobe.aem.graphql.client;
 
 /**
  * Allows to use paging for GraphQl queries, create a cursor using
- * {@link AEMHeadlessClient#createCursor(String, int)}.
+ * {@link AEMHeadlessClient#createPagingCursor(GraphQlQuery, int)}.
  *
  */
 public interface GraphQlPagingCursor {

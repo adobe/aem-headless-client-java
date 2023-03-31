@@ -118,8 +118,8 @@ public class GraphQlResponse {
 	}
 
 	/**
-	 * @return the response items if found at JSON path "data" -> "...List" ->
-	 *         "items" or null if no items could be found in response.
+	 * @return the response items if found at JSON path  {@code "data" ->"...List" ->
+	 *         "items"} or null if no items could be found in response.
 	 */
 	public @Nullable JsonNode getItems() {
 		return items;

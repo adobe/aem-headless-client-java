@@ -36,7 +36,8 @@ public class GraphQlQueryBuilder {
 	 * {@link SubSelection#field(String)} and
 	 * {@link SubSelection#subSelection(String)} to create deep structures.
 	 * 
-	 * @return the sub selectioon
+	 * @param fieldName the field name for the sub selection
+	 * @return the sub selection
 	 * 
 	 */
 	public static @NotNull SubSelection subSelection(String fieldName) {
@@ -53,16 +54,28 @@ public class GraphQlQueryBuilder {
 		headlessQuery = new GraphQlQuery();
 	}
 
+	/**
+	 * @param name the content fragment name to to use for this query
+	 * @return the GraphQlQueryBuilder
+	 */
 	public GraphQlQueryBuilder contentFragmentModelName(@NotNull String name) {
 		headlessQuery.setContentFragmentModelName(name);
 		return this;
 	}
-
+	
+	/**
+	 * @param field field name to add to the query
+	 * @return the GraphQlQueryBuilder
+	 */
 	public GraphQlQueryBuilder field(@NotNull String field) {
 		headlessQuery.addField(new SimpleField(field));
 		return this;
 	}
 
+	/**
+	 * @param field field class that can be either a {@link #subSelection(String)}
+	 * @return the GraphQlQueryBuilder
+	 */
 	public GraphQlQueryBuilder field(@NotNull Field field) {
 		headlessQuery.addField(field);
 		return this;
@@ -100,15 +113,27 @@ public class GraphQlQueryBuilder {
 		}
 	}
 
+	/**
+	 * Represents a generic field.
+	 */
 	public static interface Field {
-		public String toQueryFragment();
+
+		/**
+		 * Creates the query fragment for the field.
+		 * 
+		 * @return the query fragment as string
+		 */
+		String toQueryFragment();
 	}
 
+	/**
+	 * Represents a simple field.
+	 */
 	public static class SimpleField implements Field {
 
 		private final String fieldName;
 
-		public SimpleField(String fieldName) {
+		SimpleField(String fieldName) {
 			super();
 			this.fieldName = fieldName;
 		}
@@ -119,35 +144,44 @@ public class GraphQlQueryBuilder {
 		}
 	}
 
+	/**
+	 * Represents a sub selection that may contain other fields and sub selections.
+	 */
 	public static class SubSelection implements Field {
 
 		private final String fieldName;
-		private final List<Field> subSelectionFields;
+		private final List<Field> fieldsInSubSelection;
 
-		public SubSelection(String fieldName) {
+		SubSelection(String fieldName) {
 			this.fieldName = fieldName;
-			this.subSelectionFields = new ArrayList<>();
+			this.fieldsInSubSelection = new ArrayList<>();
 		}
 
-		public @NotNull SubSelection subSelection(String fieldName) {
-			SubSelection newSubSelection = new SubSelection(fieldName);
-			subSelectionFields.add(newSubSelection);
-			return newSubSelection;
-		}
-
+		/**
+		 * Allows to add a simple field or a sub selection
+		 * 
+		 * @param field the field 
+		 * @return the current SubSelection
+		 */
 		public @NotNull SubSelection field(Field field) {
-			subSelectionFields.add(field);
+			fieldsInSubSelection.add(field);
 			return this;
 		}
 
+		/**
+		 * Adds a simple field to the sub selection
+		 * 
+		 * @param fieldName the field name
+		 * @return the current SubSelection
+		 */
 		public @NotNull SubSelection field(String fieldName) {
-			subSelectionFields.add(new SimpleField(fieldName));
+			fieldsInSubSelection.add(new SimpleField(fieldName));
 			return this;
 		}
 
 		@Override
 		public String toQueryFragment() {
-			return fieldName + "{" + subSelectionFields.stream().map(Field::toQueryFragment).collect(Collectors.joining(" ")) + "}";
+			return fieldName + "{" + fieldsInSubSelection.stream().map(Field::toQueryFragment).collect(Collectors.joining(" ")) + "}";
 		}
 	}
 

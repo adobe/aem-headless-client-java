@@ -23,7 +23,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents GraphQl query vars that is a map of String keys to object values.
- * Adds convenience methods.
+ * 
+ * Adds convenience methods to simplify the use of {@link AEMHeadlessClient}.
  */
 public class GraphQlQueryVars extends HashMap<String, Object> implements Map<String, Object> {
 
@@ -36,12 +37,18 @@ public class GraphQlQueryVars extends HashMap<String, Object> implements Map<Str
 	 * Create a query variables object that can be used to set default query
 	 * variables like {@link #after(String)} or {@link #first(int)}.
 	 * 
-	 * @return
+	 * @return the GraphQlQueryVars
 	 */
 	public static GraphQlQueryVars create() {
 		return new GraphQlQueryVars();
 	}
 
+	/**
+	 * Create GraphQlQueryVars.
+	 * 
+	 * @param initialQueryVars the vars to start with
+	 * @return the GraphQlQueryVars
+	 */
 	static GraphQlQueryVars create(@Nullable Map<String, Object> initialQueryVars) {
 		GraphQlQueryVars graphQlQueryVars = new GraphQlQueryVars();
 		if (initialQueryVars != null) {
@@ -50,23 +57,60 @@ public class GraphQlQueryVars extends HashMap<String, Object> implements Map<Str
 		return graphQlQueryVars;
 	}
 
+	/**
+	 * Adds the 'after' value useful for paging.
+	 * 
+	 * @param after the 'after' var value
+	 * @return the GraphQlQueryVars
+	 */
 	public GraphQlQueryVars after(String after) {
 		put(QUERY_VAR_AFTER, after);
 		return this;
 	}
 
+	/**
+	 * Adds the 'first' value useful for paging.
+	 * 
+	 * @param first the 'first' var value
+	 * @return the GraphQlQueryVars
+	 */
 	public GraphQlQueryVars first(int first) {
 		put(QUERY_VAR_FIRST, first);
 		return this;
 	}
 
+	/**
+	 * Adds the 'offset' value useful for paging.
+	 * 
+	 * @param offset the 'offset' var value
+	 * @return the GraphQlQueryVars
+	 */
 	public GraphQlQueryVars offset(int offset) {
 		put(QUERY_VAR_OFFSET, offset);
 		return this;
 	}
 
+	/**
+	 * Adds the 'limit' value useful for paging.
+	 * 
+	 * @param limit the 'limit' var value
+	 * @return the GraphQlQueryVars
+	 */
 	public GraphQlQueryVars limit(int limit) {
 		put(QUERY_VAR_LIMIT, limit);
+		return this;
+	}
+	
+	/**
+	 * Adds and arbitrary entry to the variables.
+	 * 
+	 * @param key the key
+	 * @param val the value
+	 * 
+	 * @return the GraphQlQueryVars
+	 */
+	public GraphQlQueryVars addVar(String key, Object val) {
+		put(key, val);
 		return this;
 	}
 
@@ -75,7 +119,7 @@ public class GraphQlQueryVars extends HashMap<String, Object> implements Map<Str
 		for (String requiredVarName : requiredVarNames) {
 			String queryVarName = "$" + requiredVarName;
 			if (!query.contains(queryVarName)) {
-				throw new IllegalStateException("Required query variable " + queryVarName + " is not contained in query:\n" + query);
+				throw new IllegalArgumentException("Required query variable " + queryVarName + " is not contained in query:\n" + query);
 			}
 		}
 	}
