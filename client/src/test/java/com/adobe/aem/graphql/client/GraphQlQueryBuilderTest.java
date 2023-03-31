@@ -47,8 +47,8 @@ class GraphQlQueryBuilderTest {
 	@Test
 	void testSimpleQueryCursorPaging() {
 
-		assertEquals("query ($after: String, $first: Int)  { \n"
-				+ "  articlePaginated(sort: \"title ASC, _path DESC\", after: $after, first: $first) {\n"
+		assertEquals("query ($after: String, $first: Int) { \n"
+				+ "  articlePaginated(after: $after, first: $first, sort: \"title ASC, _path DESC\") {\n"
 				+ "    edges { node {\n"
 				+ "      _path\n"
 				+ "      title\n"
@@ -69,7 +69,7 @@ class GraphQlQueryBuilderTest {
 	@Test
 	void testSimpleQueryOffsetPaging() {
 
-		assertEquals("query ($offset: Int, $limit: Int)  { \n"
+		assertEquals("query ($offset: Int, $limit: Int) { \n"
 				+ "  articleList(offset: $offset, limit: $limit, sort: \"title ASC, _path DESC\") {\n"
 				+ "    items {\n"
 				+ "      _path\n"

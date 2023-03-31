@@ -81,6 +81,11 @@ public class GraphQlQueryBuilder {
 		return this;
 	}
 
+	public GraphQlQueryBuilder useFilter() {
+		headlessQuery.setDeclareContentFragmentModelFilter(true);
+		return this;
+	}
+
 	public GraphQlQueryBuilder paginated() {
 		headlessQuery.setPaginationType(PaginationType.CURSOR);
 		return this;
