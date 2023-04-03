@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
@@ -140,14 +141,15 @@ public class GraphQlQuery {
 		if (!effectiveTopLevelQueryArguments.isEmpty()) {
 			buf.append("(");
 			boolean isFirst = true;
-			for (String key : effectiveTopLevelQueryArguments.keySet()) {
+			for (Entry<String, Object> entry : effectiveTopLevelQueryArguments.entrySet()) {
+				String key = entry.getKey();
 				if (isFirst) {
 					isFirst = false;
 				} else {
 					buf.append(", ");
 				}
 				buf.append(key + ": ");
-				Object val = effectiveTopLevelQueryArguments.get(key);
+				Object val = entry.getValue();
 				if (val instanceof Number || ((val instanceof String) && ((String) val).startsWith("$"))) {
 					buf.append(val);
 				} else {

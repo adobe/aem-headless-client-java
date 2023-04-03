@@ -137,8 +137,12 @@ public class GraphQlResponse {
 
 		ObjectMapper mapper = new ObjectMapper();
 
+		JsonNode itemsJson = getItems();
+		if (itemsJson == null) {
+			return null;
+		}
 		List<T> result = new ArrayList<>();
-		for (JsonNode jsonNode : getItems()) {
+		for (JsonNode jsonNode : itemsJson) {
 			try {
 				result.add(mapper.treeToValue(jsonNode, clazz));
 			} catch (JsonProcessingException | IllegalArgumentException e) {
