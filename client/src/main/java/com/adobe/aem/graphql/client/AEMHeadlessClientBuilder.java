@@ -18,6 +18,7 @@ package com.adobe.aem.graphql.client;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import com.adobe.aem.graphql.execution.ExecutionStrategy;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -117,6 +118,11 @@ public class AEMHeadlessClientBuilder {
 	public @NotNull AEMHeadlessClientBuilder readTimeout(int readTimeout) {
 		assertNotSealed();
 		headlessClient.setReadTimeout(readTimeout);
+		return this;
+	}
+
+	public @NotNull AEMHeadlessClientBuilder executionStrategy(ExecutionStrategy strategy) {
+		headlessClient.setExecutionStrategy(strategy);
 		return this;
 	}
 

@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.adobe.aem.graphql.execution.ExecutionContext;
+import com.adobe.aem.graphql.execution.ExecutionStrategy;
 import org.jetbrains.annotations.NotNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -84,6 +86,8 @@ public class AEMHeadlessClient {
 	private String authorizationHeader = null;
 	private int connectTimeout = DEFAULT_TIMEOUT;
 	private int readTimeout = DEFAULT_TIMEOUT;
+
+	private ExecutionStrategy executionStrategy;
 
 	/**
 	 * Builder that allows to configure all available options of the
@@ -138,6 +142,10 @@ public class AEMHeadlessClient {
 	public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
 
 		String queryStr = createQuery(query, variables);
+
+		this.getExecutionStrategy();
+		ExecutionContext context = new ExecutionContext(this.getExecutionStrategy());
+		context.execute();
 
 		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
 
@@ -307,6 +315,10 @@ public class AEMHeadlessClient {
 	void setReadTimeout(int readTimeout) {
 		this.readTimeout = readTimeout;
 	}
+
+	ExecutionStrategy getExecutionStrategy() {return executionStrategy; }
+
+	void setExecutionStrategy(ExecutionStrategy executionStrategy) { this.executionStrategy = executionStrategy; }
 
 	String createQuery(String query, Map<String, Object> variables) {
 		ObjectMapper mapper = new ObjectMapper();
