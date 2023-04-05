@@ -62,8 +62,9 @@
         <sling.password>admin</sling.password>
         <slf4j.version>1.7.6</slf4j.version>
         <jacoco.version>0.8.3</jacoco.version>
-        <java.version>1.8</java.version>
+        <java.version>1.11</java.version>
         <mockitio.version>2.24.5</mockitio.version>
+        <jetty.httpclient.version>1.0.3</jetty.httpclient.version>
     </properties>
 
     <!-- ======================================================================= -->
@@ -516,7 +517,12 @@
                 <version>1.3</version>
                 <scope>test</scope>
             </dependency>
-        </dependencies>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-reactive-httpclient</artifactId>
+                <version>${jetty.httpclient.version}</version>
+            </dependency>
+           </dependencies>
     </dependencyManagement>
 
     <!-- Deploy to the Maven Repositories using WebDAV URLs. This enables abstracting 

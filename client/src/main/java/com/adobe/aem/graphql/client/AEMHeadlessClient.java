@@ -57,7 +57,7 @@ public class AEMHeadlessClient {
 	static final String HEADER_AUTHORIZATION = "Authorization";
 	static final String AUTH_BEARER = "Bearer";
 	static final String AUTH_BASIC = "Basic";
-	static final String CONTENT_TYPE_JSON = "application/json";
+	public static final String CONTENT_TYPE_JSON = "application/json";
 	static final String SPACE = " ";
 	static final String SLASH = "/";
 	static final String METHOD_GET = "GET";
@@ -143,9 +143,10 @@ public class AEMHeadlessClient {
 
 		String queryStr = createQuery(query, variables);
 
-		this.getExecutionStrategy();
-		ExecutionContext context = new ExecutionContext(this.getExecutionStrategy());
-		context.execute();
+		if(this.getExecutionStrategy() != null) {
+			ExecutionContext context = new ExecutionContext(this.getExecutionStrategy());
+			return context.execute(endpoint, queryStr, 200, this);
+		}
 
 		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
 
@@ -280,7 +281,7 @@ public class AEMHeadlessClient {
 				responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
 	}
 
-	URI getEndpoint() {
+	public URI getEndpoint() {
 		return endpoint;
 	}
 
@@ -292,7 +293,7 @@ public class AEMHeadlessClient {
 		}
 	}
 
-	String getAuthorizationHeader() {
+	public String getAuthorizationHeader() {
 		return authorizationHeader;
 	}
 
@@ -408,7 +409,7 @@ public class AEMHeadlessClient {
 		return out.toString();
 	}
 
-	private JsonNode stringToJson(String jsonResponseStr) {
+	public JsonNode stringToJson(String jsonResponseStr) {
 		ObjectMapper jsonMapper = new ObjectMapper();
 		try {
 			JsonNode json = jsonMapper.readTree(jsonResponseStr);
@@ -425,7 +426,7 @@ public class AEMHeadlessClient {
 		}
 	}
 
-	private static boolean isBlank(final CharSequence cs) {
+	public static boolean isBlank(final CharSequence cs) {
 		return cs == null || cs.chars().allMatch(Character::isWhitespace);
 	}
 }

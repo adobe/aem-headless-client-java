@@ -45,7 +45,7 @@ public class GraphQlResponse {
 	private final ArrayNode items;
 	private final List<Error> errors;
 
-	GraphQlResponse(JsonNode response) {
+	public GraphQlResponse(JsonNode response) {
 		this.errors = readErrors(response);
 		this.data = response.get(JSON_KEY_DATA);
 		this.items = readItems();
