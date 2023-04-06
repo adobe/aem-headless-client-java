@@ -26,7 +26,7 @@ public class AEMHeadlessClientException extends RuntimeException {
 
 	private final GraphQlResponse graphQlResponse;
 
-	AEMHeadlessClientException(String message) {
+	public AEMHeadlessClientException(String message) {
 		super(message);
 		this.graphQlResponse = null;
 	}

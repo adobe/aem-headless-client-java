@@ -1,6 +1,7 @@
 package com.adobe.aem.graphql.execution;
 
 import com.adobe.aem.graphql.client.AEMHeadlessClient;
+import com.adobe.aem.graphql.client.AEMHeadlessClientException;
 import com.adobe.aem.graphql.client.GraphQlResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.eclipse.jetty.http.HttpHeader;
@@ -17,7 +18,7 @@ import java.util.function.Function;
 
 public class AsyncExecutionStrategy implements ExecutionStrategy {
 
-    ExecutorService executorService = Executors.newFixedThreadPool(2);
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     @Override
     public GraphQlResponse execute(@NotNull URI endPoint, @NotNull String query, int expectedCode, AEMHeadlessClient aemHeadlessClient) {
@@ -37,6 +38,10 @@ public class AsyncExecutionStrategy implements ExecutionStrategy {
                 .sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApplyAsync(new Function<HttpResponse<String>, GraphQlResponse>() {
                     public GraphQlResponse apply(HttpResponse<String> response) {
+                        if (response.statusCode() != expectedCode) {
+                            throw new AEMHeadlessClientException(
+                                    "Unexpected http response code " + response.statusCode() + ": " + response.body());
+                        }
                         JsonNode responseJson = aemHeadlessClient.stringToJson(response.body());
                         GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
                         return graphQlResponse;
