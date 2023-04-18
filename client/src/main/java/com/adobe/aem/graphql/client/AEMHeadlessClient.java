@@ -15,37 +15,28 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.client;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
+import com.adobe.aem.graphql.execution.async.AsyncExecutionStrategy;
+import com.adobe.aem.graphql.execution.reactive.ReactiveExecutionStrategy;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
-
-import com.adobe.aem.graphql.execution.ExecutionContext;
-import com.adobe.aem.graphql.execution.ExecutionStrategy;
-import org.jetbrains.annotations.NotNull;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Client that simplifies interaction with AEM GraphQL endpoints.
  */
-public class AEMHeadlessClient {
+public  class AEMHeadlessClient<T> {
 
 	static final String ENDPOINT_DEFAULT_GRAPHQL = "/content/graphql/global/endpoint.json";
 	static final String ENDPOINT_PERSISTED_QUERIES_PERSIST = "/graphql/persist.json";
@@ -57,7 +48,7 @@ public class AEMHeadlessClient {
 	static final String HEADER_AUTHORIZATION = "Authorization";
 	static final String AUTH_BEARER = "Bearer";
 	static final String AUTH_BASIC = "Basic";
-	public static final String CONTENT_TYPE_JSON = "application/json";
+	static final String CONTENT_TYPE_JSON = "application/json";
 	static final String SPACE = " ";
 	static final String SLASH = "/";
 	static final String METHOD_GET = "GET";
@@ -87,7 +78,9 @@ public class AEMHeadlessClient {
 	private int connectTimeout = DEFAULT_TIMEOUT;
 	private int readTimeout = DEFAULT_TIMEOUT;
 
-	private ExecutionStrategy executionStrategy;
+	private Class<T> clazz;
+
+	//T t;
 
 	/**
 	 * Builder that allows to configure all available options of the
@@ -142,11 +135,6 @@ public class AEMHeadlessClient {
 	public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
 
 		String queryStr = createQuery(query, variables);
-
-		if(this.getExecutionStrategy() != null) {
-			ExecutionContext context = new ExecutionContext(this.getExecutionStrategy());
-			return context.execute(endpoint, queryStr, 200, this);
-		}
 
 		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
 
@@ -317,9 +305,9 @@ public class AEMHeadlessClient {
 		this.readTimeout = readTimeout;
 	}
 
-	ExecutionStrategy getExecutionStrategy() {return executionStrategy; }
+	void setExecutionStrategy(Class<T> clazz) { this.clazz = clazz; }
 
-	void setExecutionStrategy(ExecutionStrategy executionStrategy) { this.executionStrategy = executionStrategy; }
+	Class<T> getExecutionStrategyV2(){ return this.clazz ; };
 
 	String createQuery(String query, Map<String, Object> variables) {
 		ObjectMapper mapper = new ObjectMapper();
@@ -354,7 +342,6 @@ public class AEMHeadlessClient {
 	}
 
 	String executeRequest(URI uri, String method, String entity, int expectedCode) {
-
 		try {
 			HttpURLConnection httpCon = openHttpConnection(uri);
 			httpCon.setConnectTimeout(connectTimeout);
@@ -409,7 +396,7 @@ public class AEMHeadlessClient {
 		return out.toString();
 	}
 
-	public JsonNode stringToJson(String jsonResponseStr) {
+	public static JsonNode stringToJson(String jsonResponseStr) {
 		ObjectMapper jsonMapper = new ObjectMapper();
 		try {
 			JsonNode json = jsonMapper.readTree(jsonResponseStr);
@@ -429,4 +416,17 @@ public class AEMHeadlessClient {
 	public static boolean isBlank(final CharSequence cs) {
 		return cs == null || cs.chars().allMatch(Character::isWhitespace);
 	}
+
+	public T executeQuery(String query) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+
+		String queryStr = createQuery(query,  null);
+
+			if (getExecutionStrategyV2() == ReactiveExecutionStrategy.class){
+				return (T) new ReactiveExecutionStrategy().execute(this.getEndpoint(), queryStr, 200, this);
+			}
+			else {
+				return (T) new AsyncExecutionStrategy().execute(this.getEndpoint(), queryStr, 200, this);
+			}
+	}
+
 }
