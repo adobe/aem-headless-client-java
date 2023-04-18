@@ -38,16 +38,16 @@ public class Test {
                 .executionStrategy(ReactiveExecutionStrategy.class)
                 .build();
 
-        Observable<GraphQlResponse> t4 =aemHeadlessClient1.executeQuery(query);
-        t4.subscribe((item) -> System.out.println("Reactive :: " + item));
+        Observable<GraphQlResponse> observable =aemHeadlessClient1.executeQuery(query);
+        observable.subscribe((item) -> System.out.println("Reactive :: " + item.getData()));
 
         AEMHeadlessClient<GraphQlResponse> aemHeadlessClient2 = AEMHeadlessClient.<GraphQlResponse>builder()
                 .endpoint(new URI("http://localhost:4502"))
                 .basicAuth("admin", "admin")
                 .executionStrategy(AsyncExecutionStrategy.class)
                 .build();
-        GraphQlResponse t5= aemHeadlessClient2.executeQuery(query);
-        System.out.println("Async result:: " + t5.getData());
+        GraphQlResponse graphQlResponse= aemHeadlessClient2.executeQuery(query);
+        System.out.println("Async result:: " + graphQlResponse.getData());
 
           }
 
