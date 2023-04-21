@@ -15,14 +15,6 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.client;
 
-import com.adobe.aem.graphql.execution.async.AsyncExecutionStrategy;
-import com.adobe.aem.graphql.execution.reactive.ReactiveExecutionStrategy;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -42,6 +34,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+
+import com.adobe.aem.graphql.execution.async.AsyncExecutionStrategy;
+import com.adobe.aem.graphql.execution.reactive.ReactiveExecutionStrategy;
+import org.jetbrains.annotations.NotNull;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Client that simplifies interaction with AEM GraphQL endpoints.
@@ -90,13 +91,12 @@ public class AEMHeadlessClient<T> {
 
     private Class<T> clazz;
 
-    //T t;
-
     /**
      * Builder that allows to configure all available options of the
      * {@code AEMHeadlessClient}
      *
      * @return builder
+     *
      */
     public static @NotNull AEMHeadlessClientBuilder builder() {
         return new AEMHeadlessClientBuilder();
@@ -109,13 +109,14 @@ public class AEMHeadlessClient<T> {
     /**
      * Creates a simple client (no authentication or other configuration). For more
      * complex cases use {@link #builder()}.
-     * <p>
+     *
      * If the endpoint points to a server only without path (e.g.
      * {@code http:/myserver:8080}), then the default endpoint for GraphQL queries
      * {@code /content/graphql/global/endpoint.json} is taken.
      *
      * @param endpoint the endpoint to run queries against
      * @throws URISyntaxException if the endpoint is an invalid URI
+     *
      */
     public AEMHeadlessClient(@NotNull String endpoint) throws URISyntaxException {
         setEndpoint(new URI(endpoint));
@@ -141,8 +142,11 @@ public class AEMHeadlessClient<T> {
      * @throws AEMHeadlessClientException if the query cannot be executed
      */
     public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
+
         String queryStr = createQuery(query, variables);
+
         String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
+
         JsonNode responseJson = stringToJson(responseStr);
         GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
         if (graphQlResponse.hasErrors()) {
@@ -318,8 +322,6 @@ public class AEMHeadlessClient<T> {
         return this.clazz;
     }
 
-    ;
-
     String createQuery(String query, Map<String, Object> variables) {
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode queryNode = mapper.createObjectNode();
@@ -353,6 +355,7 @@ public class AEMHeadlessClient<T> {
     }
 
     String executeRequest(URI uri, String method, String entity, int expectedCode) {
+
         try {
             HttpURLConnection httpCon = openHttpConnection(uri);
             httpCon.setConnectTimeout(connectTimeout);
@@ -383,6 +386,7 @@ public class AEMHeadlessClient<T> {
                 throw new AEMHeadlessClientException(
                         "Unexpected http response code " + responseCode + ": " + responseBody);
             }
+
             return responseBody;
         } catch (AEMHeadlessClientException e) {
             throw e;
@@ -400,7 +404,7 @@ public class AEMHeadlessClient<T> {
         char[] buffer = new char[bufferSize];
         StringBuilder out = new StringBuilder();
         Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-        for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0; ) {
+        for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0;) {
             out.append(buffer, 0, numRead);
         }
         return out.toString();
