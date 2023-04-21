@@ -51,6 +51,7 @@ The client comes with a transitive dependency to the Jackson JSON library that a
         GraphQlResponse graphQlResponse= aemHeadlessClient.executeQuery(query);
 
 ```
+Depending on your requirement, you can add `executionStrategy()` when building the AEMHeadlessClient. Default is `AsyncExecutionStrategy`
 
 ### Creating an AEMHeadless Client
 
