@@ -23,410 +23,427 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 /**
  * Client that simplifies interaction with AEM GraphQL endpoints.
  */
-public  class AEMHeadlessClient<T> {
+public class AEMHeadlessClient<T> {
 
-	static final String ENDPOINT_DEFAULT_GRAPHQL = "/content/graphql/global/endpoint.json";
-	static final String ENDPOINT_PERSISTED_QUERIES_PERSIST = "/graphql/persist.json";
-	static final String ENDPOINT_PERSISTED_QUERIES_EXECUTE = "/graphql/execute.json";
-	static final String ENDPOINT_PERSISTED_QUERIES_LIST = "/graphql/list.json/";
+    static final String ENDPOINT_DEFAULT_GRAPHQL = "/content/graphql/global/endpoint.json";
+    static final String ENDPOINT_PERSISTED_QUERIES_PERSIST = "/graphql/persist.json";
+    static final String ENDPOINT_PERSISTED_QUERIES_EXECUTE = "/graphql/execute.json";
+    static final String ENDPOINT_PERSISTED_QUERIES_LIST = "/graphql/list.json/";
 
-	static final String HEADER_CONTENT_TYPE = "Content-Type";
-	static final String HEADER_ACCEPT = "Accept";
-	static final String HEADER_AUTHORIZATION = "Authorization";
-	static final String AUTH_BEARER = "Bearer";
-	static final String AUTH_BASIC = "Basic";
-	static final String CONTENT_TYPE_JSON = "application/json";
-	static final String SPACE = " ";
-	static final String SLASH = "/";
-	static final String METHOD_GET = "GET";
-	static final String METHOD_PUT = "PUT";
-	static final String METHOD_POST = "POST";
+    static final String HEADER_CONTENT_TYPE = "Content-Type";
+    static final String HEADER_ACCEPT = "Accept";
+    static final String HEADER_AUTHORIZATION = "Authorization";
+    static final String AUTH_BEARER = "Bearer";
+    static final String AUTH_BASIC = "Basic";
+    static final String CONTENT_TYPE_JSON = "application/json";
+    static final String SPACE = " ";
+    static final String SLASH = "/";
+    static final String METHOD_GET = "GET";
+    static final String METHOD_PUT = "PUT";
+    static final String METHOD_POST = "POST";
 
-	static final String JSON_KEY_QUERY = "query";
-	static final String JSON_KEY_QUERIES = "queries";
-	static final String JSON_KEY_LONG_FORM = "longForm";
-	static final String JSON_KEY_SHORT_FORM = "shortForm";
-	static final String JSON_KEY_SHORT_PATH = "shortPath";
-	static final String JSON_KEY_DATA = "data";
-	static final String JSON_KEY_ITEMS = "items";
-	static final String JSON_KEY_EDGES = "edges";
-	static final String JSON_KEY_NODE = "node";
-	static final String JSON_KEY_PAGE_INFO = "pageInfo";
+    static final String JSON_KEY_QUERY = "query";
+    static final String JSON_KEY_QUERIES = "queries";
+    static final String JSON_KEY_LONG_FORM = "longForm";
+    static final String JSON_KEY_SHORT_FORM = "shortForm";
+    static final String JSON_KEY_SHORT_PATH = "shortPath";
+    static final String JSON_KEY_DATA = "data";
+    static final String JSON_KEY_ITEMS = "items";
+    static final String JSON_KEY_EDGES = "edges";
+    static final String JSON_KEY_NODE = "node";
+    static final String JSON_KEY_PAGE_INFO = "pageInfo";
 
-	static final String JSON_KEY_ERRORS = "errors";
-	static final String JSON_KEY_MESSAGE = "message";
-	static final String JSON_KEY_PATH = "path";
-	static final String JSON_KEY_VARIABLES = "variables";
+    static final String JSON_KEY_ERRORS = "errors";
+    static final String JSON_KEY_MESSAGE = "message";
+    static final String JSON_KEY_PATH = "path";
+    static final String JSON_KEY_VARIABLES = "variables";
 
-	static final int DEFAULT_TIMEOUT = 15000;
+    static final int DEFAULT_TIMEOUT = 15000;
 
-	private URI endpoint;
-	private String authorizationHeader = null;
-	private int connectTimeout = DEFAULT_TIMEOUT;
-	private int readTimeout = DEFAULT_TIMEOUT;
+    private URI endpoint;
+    private String authorizationHeader = null;
+    private int connectTimeout = DEFAULT_TIMEOUT;
+    private int readTimeout = DEFAULT_TIMEOUT;
 
-	private Class<T> clazz;
+    private Class<T> clazz;
 
-	//T t;
+    //T t;
 
-	/**
-	 * Builder that allows to configure all available options of the
-	 * {@code AEMHeadlessClient}
-	 * 
-	 * @return builder
-	 * 
-	 */
-	public static @NotNull AEMHeadlessClientBuilder builder() {
-		return new AEMHeadlessClientBuilder();
-	}
+    /**
+     * Builder that allows to configure all available options of the
+     * {@code AEMHeadlessClient}
+     *
+     * @return builder
+     */
+    public static @NotNull AEMHeadlessClientBuilder builder() {
+        return new AEMHeadlessClientBuilder();
+    }
 
-	AEMHeadlessClient() {
-		// used by builder only
-	}
+    AEMHeadlessClient() {
+        // used by builder only
+    }
 
-	/**
-	 * Creates a simple client (no authentication or other configuration). For more
-	 * complex cases use {@link #builder()}.
-	 * 
-	 * If the endpoint points to a server only without path (e.g.
-	 * {@code http:/myserver:8080}), then the default endpoint for GraphQL queries
-	 * {@code /content/graphql/global/endpoint.json} is taken.
-	 * 
-	 * @param endpoint the endpoint to run queries against
-	 * @throws URISyntaxException if the endpoint is an invalid URI
-	 * 
-	 */
-	public AEMHeadlessClient(@NotNull String endpoint) throws URISyntaxException {
-		setEndpoint(new URI(endpoint));
-	}
+    /**
+     * Creates a simple client (no authentication or other configuration). For more
+     * complex cases use {@link #builder()}.
+     * <p>
+     * If the endpoint points to a server only without path (e.g.
+     * {@code http:/myserver:8080}), then the default endpoint for GraphQL queries
+     * {@code /content/graphql/global/endpoint.json} is taken.
+     *
+     * @param endpoint the endpoint to run queries against
+     * @throws URISyntaxException if the endpoint is an invalid URI
+     */
+    public AEMHeadlessClient(@NotNull String endpoint) throws URISyntaxException {
+        setEndpoint(new URI(endpoint));
+    }
 
-	/**
-	 * Runs the given GraphQL query on server.
-	 * 
-	 * @param query the query to execute
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runQuery(@NotNull String query) {
-		return runQuery(query, null);
-	}
+    /**
+     * Runs the given GraphQL query on server.
+     *
+     * @param query the query to execute
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the query cannot be executed
+     */
+    public @NotNull GraphQlResponse runQuery(@NotNull String query) {
+        return runQuery(query, null);
+    }
 
-	/**
-	 * Runs the given GraphQL query on server.
-	 * 
-	 * @param query     the query to execute
-	 * @param variables variables for the query
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
+    /**
+     * Runs the given GraphQL query on server.
+     *
+     * @param query     the query to execute
+     * @param variables variables for the query
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the query cannot be executed
+     */
+    public @NotNull GraphQlResponse runQuery(@NotNull String query, Map<String, Object> variables) {
+        String queryStr = createQuery(query, variables);
+        String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
+        JsonNode responseJson = stringToJson(responseStr);
+        GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
+        if (graphQlResponse.hasErrors()) {
+            throw new AEMHeadlessClientException(graphQlResponse);
+        }
+        return graphQlResponse;
+    }
 
-		String queryStr = createQuery(query, variables);
+    /**
+     * Lists all persisted queries for the given configuration name.
+     *
+     * @param configurationName the configuration name to list queries for
+     * @return list of {@link PersistedQuery}s
+     * @throws AEMHeadlessClientException if the persisted queries cannot be
+     *                                    retrieved
+     */
+    public @NotNull List<PersistedQuery> listPersistedQueries(@NotNull String configurationName) {
 
-		String responseStr = executeRequest(endpoint, METHOD_POST, queryStr, 200);
+        String responseStr = executeRequest(
+                getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_LIST + configurationName), METHOD_GET, null, 200);
 
-		JsonNode responseJson = stringToJson(responseStr);
-		GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
-		if (graphQlResponse.hasErrors()) {
-			throw new AEMHeadlessClientException(graphQlResponse);
-		}
-		return graphQlResponse;
-	}
+        JsonNode persistedQueriesJson = stringToJson(responseStr);
 
-	/**
-	 * Lists all persisted queries for the given configuration name.
-	 * 
-	 * @param configurationName the configuration name to list queries for
-	 * @return list of {@link PersistedQuery}s
-	 * @throws AEMHeadlessClientException if the persisted queries cannot be
-	 *                                    retrieved
-	 */
-	public @NotNull List<PersistedQuery> listPersistedQueries(@NotNull String configurationName) {
+        JsonNode persistedQueriesNode = persistedQueriesJson.get(0).get(JSON_KEY_QUERIES);
 
-		String responseStr = executeRequest(
-				getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_LIST + configurationName), METHOD_GET, null, 200);
+        List<PersistedQuery> persistedQueries = new ArrayList<>();
 
-		JsonNode persistedQueriesJson = stringToJson(responseStr);
+        Iterator<JsonNode> persistedQueriesNodeIt = persistedQueriesNode.elements();
+        while (persistedQueriesNodeIt.hasNext()) {
+            JsonNode persistedQueryNode = persistedQueriesNodeIt.next();
+            persistedQueries.add(new PersistedQuery(persistedQueryNode));
+        }
+        return persistedQueries;
+    }
 
-		JsonNode persistedQueriesNode = persistedQueriesJson.get(0).get(JSON_KEY_QUERIES);
+    /**
+     * Runs a persisted query on the server.
+     *
+     * @param persistedQuery a {@link PersistedQuery} as retrieved by
+     *                       {@link #listPersistedQueries(String)}.
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the persisted query cannot be executed
+     */
+    public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery) {
+        return runPersistedQuery(persistedQuery.getShortPath(), null);
+    }
 
-		List<PersistedQuery> persistedQueries = new ArrayList<>();
+    /**
+     * Runs a persisted query on the server.
+     *
+     * @param persistedQuery a {@link PersistedQuery} as retrieved by
+     *                       {@link #listPersistedQueries(String)}
+     * @param variables      variables for the persisted query
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the persisted query cannot be executed
+     */
+    public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery,
+                                                      Map<String, Object> variables) {
+        return runPersistedQuery(persistedQuery.getShortPath(), variables);
+    }
 
-		Iterator<JsonNode> persistedQueriesNodeIt = persistedQueriesNode.elements();
-		while (persistedQueriesNodeIt.hasNext()) {
-			JsonNode persistedQueryNode = persistedQueriesNodeIt.next();
-			persistedQueries.add(new PersistedQuery(persistedQueryNode));
-		}
-		return persistedQueries;
-	}
+    /**
+     * Runs a persisted query on the server.
+     *
+     * @param persistedQueryPath the persisted query path, e.g.
+     *                           {@code /myproj/myquery}
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the persisted query cannot be executed
+     */
+    public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath) {
+        return runPersistedQuery(persistedQueryPath, null);
+    }
 
-	/**
-	 * Runs a persisted query on the server.
-	 * 
-	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
-	 *                       {@link #listPersistedQueries(String)}.
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery) {
-		return runPersistedQuery(persistedQuery.getShortPath(), null);
-	}
+    /**
+     * Runs a persisted query on the server.
+     *
+     * @param persistedQueryPath the persisted query path, e.g.
+     *                           {@code /myproj/myquery}
+     * @param variables          variables for the persisted query
+     * @return the {@link GraphQlResponse}
+     * @throws AEMHeadlessClientException if the persisted query cannot be executed
+     */
+    public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath,
+                                                      Map<String, Object> variables) {
 
-	/**
-	 * Runs a persisted query on the server.
-	 * 
-	 * @param persistedQuery a {@link PersistedQuery} as retrieved by
-	 *                       {@link #listPersistedQueries(String)}
-	 * @param variables      variables for the persisted query
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runPersistedQuery(@NotNull PersistedQuery persistedQuery,
-			Map<String, Object> variables) {
-		return runPersistedQuery(persistedQuery.getShortPath(), variables);
-	}
+        validatePersistedQueryPath(persistedQueryPath);
 
-	/**
-	 * Runs a persisted query on the server.
-	 * 
-	 * @param persistedQueryPath the persisted query path, e.g.
-	 *                           {@code /myproj/myquery}
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath) {
-		return runPersistedQuery(persistedQueryPath, null);
-	}
+        String requestPath = ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath;
+        if (variables != null) {
+            requestPath += variables.entrySet().stream().map(this::mapEntryToReqParam).collect(Collectors.joining());
+        }
 
-	/**
-	 * Runs a persisted query on the server.
-	 * 
-	 * @param persistedQueryPath the persisted query path, e.g.
-	 *                           {@code /myproj/myquery}
-	 * @param variables          variables for the persisted query
-	 * @return the {@link GraphQlResponse}
-	 * @throws AEMHeadlessClientException if the persisted query cannot be executed
-	 */
-	public @NotNull GraphQlResponse runPersistedQuery(@NotNull String persistedQueryPath,
-			Map<String, Object> variables) {
+        String responseStr = executeRequest(getUriForPath(endpoint, requestPath), METHOD_GET, null, 200);
 
-		validatePersistedQueryPath(persistedQueryPath);
+        JsonNode responseJson = stringToJson(responseStr);
+        GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
+        if (graphQlResponse.hasErrors()) {
+            throw new AEMHeadlessClientException(graphQlResponse);
+        }
+        return graphQlResponse;
+    }
 
-		String requestPath = ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath;
-		if (variables != null) {
-			requestPath += variables.entrySet().stream().map(this::mapEntryToReqParam).collect(Collectors.joining());
-		}
+    private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
+        try {
+            return ";" + entry.getKey() + "="
+                    + URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.ISO_8859_1.name());
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("Encoding " + StandardCharsets.ISO_8859_1 + " not supported", e);
+        }
+    }
 
-		String responseStr = executeRequest(getUriForPath(endpoint, requestPath), METHOD_GET, null, 200);
+    /**
+     * Adds a new persisted query on the server.
+     *
+     * @param queryToPersist     the query
+     * @param persistedQueryPath the path to persist the query, e.g.
+     *                           {@code /myproj/myquery}
+     * @return the saved {@link PersistedQuery}
+     * @throws AEMHeadlessClientException if the query cannot be persisted
+     */
+    public @NotNull PersistedQuery persistQuery(@NotNull String queryToPersist, @NotNull String persistedQueryPath) {
+        validatePersistedQueryPath(persistedQueryPath);
 
-		JsonNode responseJson = stringToJson(responseStr);
-		GraphQlResponse graphQlResponse = new GraphQlResponse(responseJson);
-		if (graphQlResponse.hasErrors()) {
-			throw new AEMHeadlessClientException(graphQlResponse);
-		}
-		return graphQlResponse;
-	}
+        String responseStr = executeRequest(
+                getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_PERSIST + persistedQueryPath), METHOD_PUT,
+                queryToPersist, 201);
+        JsonNode responseJson = stringToJson(responseStr);
+        return new PersistedQuery(responseJson.get(JSON_KEY_SHORT_PATH).asText(),
+                responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
+    }
 
-	private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
-		try {
-			return ";" + entry.getKey() + "="
-					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.ISO_8859_1.name());
-		} catch (UnsupportedEncodingException e) {
-			throw new IllegalStateException("Encoding " + StandardCharsets.ISO_8859_1 + " not supported", e);
-		}
-	}
+    public URI getEndpoint() {
+        return endpoint;
+    }
 
-	/**
-	 * Adds a new persisted query on the server.
-	 * 
-	 * @param queryToPersist     the query
-	 * @param persistedQueryPath the path to persist the query, e.g.
-	 *                           {@code /myproj/myquery}
-	 * @return the saved {@link PersistedQuery}
-	 * @throws AEMHeadlessClientException if the query cannot be persisted
-	 */
-	public @NotNull PersistedQuery persistQuery(@NotNull String queryToPersist, @NotNull String persistedQueryPath) {
-		validatePersistedQueryPath(persistedQueryPath);
+    void setEndpoint(URI endpoint) {
+        if (isBlank(endpoint.getPath()) || SLASH.equals(endpoint.getPath())) {
+            this.endpoint = getUriForPath(endpoint, ENDPOINT_DEFAULT_GRAPHQL);
+        } else {
+            this.endpoint = endpoint;
+        }
+    }
 
-		String responseStr = executeRequest(
-				getUriForPath(endpoint, ENDPOINT_PERSISTED_QUERIES_PERSIST + persistedQueryPath), METHOD_PUT,
-				queryToPersist, 201);
-		JsonNode responseJson = stringToJson(responseStr);
-		return new PersistedQuery(responseJson.get(JSON_KEY_SHORT_PATH).asText(),
-				responseJson.get(JSON_KEY_PATH).asText(), queryToPersist);
-	}
+    public String getAuthorizationHeader() {
+        return authorizationHeader;
+    }
 
-	public URI getEndpoint() {
-		return endpoint;
-	}
+    void setAuthorizationHeader(String authorizationHeader) {
+        this.authorizationHeader = authorizationHeader;
+    }
 
-	void setEndpoint(URI endpoint) {
-		if (isBlank(endpoint.getPath()) || SLASH.equals(endpoint.getPath())) {
-			this.endpoint = getUriForPath(endpoint, ENDPOINT_DEFAULT_GRAPHQL);
-		} else {
-			this.endpoint = endpoint;
-		}
-	}
+    int getConnectTimeout() {
+        return connectTimeout;
+    }
 
-	public String getAuthorizationHeader() {
-		return authorizationHeader;
-	}
+    void setConnectTimeout(int connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
 
-	void setAuthorizationHeader(String authorizationHeader) {
-		this.authorizationHeader = authorizationHeader;
-	}
+    int getReadTimeout() {
+        return readTimeout;
+    }
 
-	int getConnectTimeout() {
-		return connectTimeout;
-	}
+    void setReadTimeout(int readTimeout) {
+        this.readTimeout = readTimeout;
+    }
 
-	void setConnectTimeout(int connectTimeout) {
-		this.connectTimeout = connectTimeout;
-	}
+    void setExecutionStrategy(Class<T> clazz) {
+        this.clazz = clazz;
+    }
 
-	int getReadTimeout() {
-		return readTimeout;
-	}
+    Class<T> getExecutionStrategy() {
+        return this.clazz;
+    }
 
-	void setReadTimeout(int readTimeout) {
-		this.readTimeout = readTimeout;
-	}
+    ;
 
-	void setExecutionStrategy(Class<T> clazz) { this.clazz = clazz; }
+    String createQuery(String query, Map<String, Object> variables) {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode queryNode = mapper.createObjectNode();
+        queryNode.put(JSON_KEY_QUERY, query);
+        if (variables != null) {
+            queryNode.set(JSON_KEY_VARIABLES, mapper.valueToTree(variables));
+        }
+        return queryNode.toString();
+    }
 
-	Class<T> getExecutionStrategyV2(){ return this.clazz ; };
+    static String basicAuthHeaderVal(String username, String password) {
+        try {
+            return AUTH_BASIC + SPACE + Base64.getEncoder()
+                    .encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1.name()));
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("Charset StandardCharsets.ISO_8859_1 unexpectedly does not exist", e);
+        }
+    }
 
-	String createQuery(String query, Map<String, Object> variables) {
-		ObjectMapper mapper = new ObjectMapper();
-		ObjectNode queryNode = mapper.createObjectNode();
-		queryNode.put(JSON_KEY_QUERY, query);
-		if (variables != null) {
-			queryNode.set(JSON_KEY_VARIABLES, mapper.valueToTree(variables));
-		}
-		return queryNode.toString();
-	}
+    static String tokenAuthHeaderVal(String token) {
+        return AUTH_BEARER + SPACE + token;
+    }
 
-	static String basicAuthHeaderVal(String username, String password) {
-		try {
-			return AUTH_BASIC + SPACE + Base64.getEncoder()
-					.encodeToString((username + ":" + password).getBytes(StandardCharsets.ISO_8859_1.name()));
-		} catch (UnsupportedEncodingException e) {
-			throw new IllegalStateException("Charset StandardCharsets.ISO_8859_1 unexpectedly does not exist", e);
-		}
-	}
+    private URI getUriForPath(URI endpoint, String path) {
+        try {
+            return new URI(endpoint.getScheme(), endpoint.getUserInfo(), endpoint.getHost(), endpoint.getPort(), path,
+                    null, null);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid GraphQL URI " + endpoint, e);
+        }
+    }
 
-	static String tokenAuthHeaderVal(String token) {
-		return AUTH_BEARER + SPACE + token;
-	}
+    String executeRequest(URI uri, String method, String entity, int expectedCode) {
+        try {
+            HttpURLConnection httpCon = openHttpConnection(uri);
+            httpCon.setConnectTimeout(connectTimeout);
+            httpCon.setReadTimeout(readTimeout);
+            httpCon.setRequestMethod(method);
+            httpCon.setRequestProperty(HEADER_ACCEPT, CONTENT_TYPE_JSON);
+            httpCon.setRequestProperty(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
+            if (!isBlank(authorizationHeader)) {
+                httpCon.setRequestProperty(HEADER_AUTHORIZATION, authorizationHeader);
+            }
+            httpCon.setDoOutput(true);
 
-	private URI getUriForPath(URI endpoint, String path) {
-		try {
-			return new URI(endpoint.getScheme(), endpoint.getUserInfo(), endpoint.getHost(), endpoint.getPort(), path,
-					null, null);
-		} catch (URISyntaxException e) {
-			throw new IllegalArgumentException("Invalid GraphQL URI " + endpoint, e);
-		}
-	}
+            if (entity != null) {
+                try (OutputStreamWriter out = new OutputStreamWriter(httpCon.getOutputStream(),
+                        StandardCharsets.UTF_8)) {
+                    out.write(entity);
+                }
+            }
 
-	String executeRequest(URI uri, String method, String entity, int expectedCode) {
-		try {
-			HttpURLConnection httpCon = openHttpConnection(uri);
-			httpCon.setConnectTimeout(connectTimeout);
-			httpCon.setReadTimeout(readTimeout);
-			httpCon.setRequestMethod(method);
-			httpCon.setRequestProperty(HEADER_ACCEPT, CONTENT_TYPE_JSON);
-			httpCon.setRequestProperty(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
-			if (!isBlank(authorizationHeader)) {
-				httpCon.setRequestProperty(HEADER_AUTHORIZATION, authorizationHeader);
-			}
-			httpCon.setDoOutput(true);
+            String responseBody;
+            try (InputStream inputStream = httpCon.getInputStream()) {
+                responseBody = inputStreamToString(inputStream);
+            }
 
-			if (entity != null) {
-				try (OutputStreamWriter out = new OutputStreamWriter(httpCon.getOutputStream(),
-						StandardCharsets.UTF_8)) {
-					out.write(entity);
-				}
-			}
+            int responseCode = httpCon.getResponseCode();
 
-			String responseBody;
-			try (InputStream inputStream = httpCon.getInputStream()) {
-				responseBody = inputStreamToString(inputStream);
-			}
+            if (responseCode != expectedCode) {
+                throw new AEMHeadlessClientException(
+                        "Unexpected http response code " + responseCode + ": " + responseBody);
+            }
+            return responseBody;
+        } catch (AEMHeadlessClientException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AEMHeadlessClientException("Could not execute " + method + " request to " + uri + ": " + e, e);
+        }
+    }
 
-			int responseCode = httpCon.getResponseCode();
+    HttpURLConnection openHttpConnection(URI uri) throws IOException {
+        return (HttpURLConnection) uri.toURL().openConnection();
+    }
 
-			if (responseCode != expectedCode) {
-				throw new AEMHeadlessClientException(
-						"Unexpected http response code " + responseCode + ": " + responseBody);
-			}
+    private String inputStreamToString(InputStream inputStream) throws IOException {
+        int bufferSize = 1024;
+        char[] buffer = new char[bufferSize];
+        StringBuilder out = new StringBuilder();
+        Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+        for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0; ) {
+            out.append(buffer, 0, numRead);
+        }
+        return out.toString();
+    }
 
-			return responseBody;
-		} catch (AEMHeadlessClientException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new AEMHeadlessClientException("Could not execute " + method + " request to " + uri + ": " + e, e);
-		}
-	}
+    public static JsonNode stringToJson(String jsonResponseStr) {
+        ObjectMapper jsonMapper = new ObjectMapper();
+        try {
+            JsonNode json = jsonMapper.readTree(jsonResponseStr);
+            return json;
+        } catch (JsonProcessingException e) {
+            throw new AEMHeadlessClientException("Could not parse GraphQL response from AEM Server: " + e, e);
+        }
+    }
 
-	HttpURLConnection openHttpConnection(URI uri) throws IOException {
-		return (HttpURLConnection) uri.toURL().openConnection();
-	}
+    void validatePersistedQueryPath(String persistedQueryPath) {
+        if (persistedQueryPath == null || !persistedQueryPath.startsWith(SLASH)
+                || persistedQueryPath.split(SLASH).length != 3) {
+            throw new IllegalArgumentException("Invalid path for persisted query: " + persistedQueryPath);
+        }
+    }
 
-	private String inputStreamToString(InputStream inputStream) throws IOException {
-		int bufferSize = 1024;
-		char[] buffer = new char[bufferSize];
-		StringBuilder out = new StringBuilder();
-		Reader in = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
-		for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0;) {
-			out.append(buffer, 0, numRead);
-		}
-		return out.toString();
-	}
+    public static boolean isBlank(final CharSequence cs) {
+        return cs == null || cs.chars().allMatch(Character::isWhitespace);
+    }
 
-	public static JsonNode stringToJson(String jsonResponseStr) {
-		ObjectMapper jsonMapper = new ObjectMapper();
-		try {
-			JsonNode json = jsonMapper.readTree(jsonResponseStr);
-			return json;
-		} catch (JsonProcessingException e) {
-			throw new AEMHeadlessClientException("Could not parse GraphQL response from AEM Server: " + e, e);
-		}
-	}
+    public T executeQuery(String query) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, InterruptedException, ExecutionException {
+        return executeQuery(query, null);
+    }
 
-	void validatePersistedQueryPath(String persistedQueryPath) {
-		if (persistedQueryPath == null || !persistedQueryPath.startsWith(SLASH)
-				|| persistedQueryPath.split(SLASH).length != 3) {
-			throw new IllegalArgumentException("Invalid path for persisted query: " + persistedQueryPath);
-		}
-	}
+    public T executeQuery(String query, Map<String, Object> variables) throws InterruptedException, ExecutionException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+        String queryStr = createQuery(query, variables);
+        if (getExecutionStrategy() == ReactiveExecutionStrategy.class) {
+            ReactiveExecutionStrategy reactiveExecutionStrategy = createObject(ReactiveExecutionStrategy.class);
+            return (T) reactiveExecutionStrategy.execute(this.getEndpoint(), queryStr, 200, this);
+        } else {
+            AsyncExecutionStrategy asyncExecutionStrategy = createObject(AsyncExecutionStrategy.class);
+            return (T) asyncExecutionStrategy.execute(this.getEndpoint(), queryStr, 200, this);
+        }
+    }
 
-	public static boolean isBlank(final CharSequence cs) {
-		return cs == null || cs.chars().allMatch(Character::isWhitespace);
-	}
-
-	public T executeQuery(String query) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-
-		String queryStr = createQuery(query,  null);
-
-			if (getExecutionStrategyV2() == ReactiveExecutionStrategy.class){
-				return (T) new ReactiveExecutionStrategy().execute(this.getEndpoint(), queryStr, 200, this);
-			}
-			else {
-				return (T) new AsyncExecutionStrategy().execute(this.getEndpoint(), queryStr, 200, this);
-			}
-	}
+    <T> T createObject(Class<?> clazz) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        return (T) clazz.getConstructor().newInstance();
+    }
 
 }

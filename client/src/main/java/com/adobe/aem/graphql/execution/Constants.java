@@ -15,12 +15,18 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.execution;
 
-import com.adobe.aem.graphql.client.AEMHeadlessClient;
-import org.jetbrains.annotations.NotNull;
+public enum Constants {
+    CONTENT_TYPE("Content-Type"),
+    AUTHORIZATION("Authorization"),
+    ;
 
-import java.net.URI;
-import java.util.concurrent.ExecutionException;
+    private final String _string;
+    Constants(String s) {
+        _string=s;
+    }
 
-public abstract class AbstractExecutionStrategy {
-    protected abstract <T> T execute(@NotNull URI endPoint, @NotNull String query, int expectedCode, AEMHeadlessClient aemHeadlessClient) throws InterruptedException, ExecutionException;
+    public String asString()
+    {
+        return _string;
+    }
 }

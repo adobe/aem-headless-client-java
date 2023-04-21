@@ -15,6 +15,8 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.IsNull.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,10 +38,14 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.adobe.aem.graphql.execution.async.AsyncExecutionStrategy;
+import com.adobe.aem.graphql.execution.reactive.ReactiveExecutionStrategy;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +54,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import rx.Observable;
 
 @ExtendWith(MockitoExtension.class)
 class AEMHeadlessClientTest {
@@ -72,8 +79,17 @@ class AEMHeadlessClientTest {
 
 	AEMHeadlessClient aemHeadlessClient;
 
+	AEMHeadlessClient<GraphQlResponse> aemAsyncHeadlessClient;
+
+	AEMHeadlessClient<Observable<GraphQlResponse>> aemReactiveHeadlessClient;
 	@Mock
 	HttpURLConnection httpURLConnection;
+
+	@Mock
+	AsyncExecutionStrategy asyncExecutionStrategy;
+
+	@Mock
+	ReactiveExecutionStrategy reactiveExecutionStrategy;
 
 	@Captor
 	ArgumentCaptor<URI> endpointCaptor;
@@ -81,6 +97,8 @@ class AEMHeadlessClientTest {
 	@BeforeEach
 	void setup() throws Exception {
 		aemHeadlessClient = spy(new AEMHeadlessClient("http://localhost:4502"));
+		aemAsyncHeadlessClient = spy(new AEMHeadlessClient<GraphQlResponse>("http://localhost:4502"));
+		aemReactiveHeadlessClient = spy(new AEMHeadlessClient<Observable<GraphQlResponse>>("http://localhost:4502"));
 	}
 
 	@Test
@@ -119,6 +137,52 @@ class AEMHeadlessClientTest {
 		assertThrows(IllegalArgumentException.class, () -> {
 			aemHeadlessClient.validatePersistedQueryPath("/myproj/settings/graphql/persistentQueries/myquery");
 		}, "long form of path is not allowed to be used directly");
+	}
+
+
+	@Test
+	void when_executeAsyncStrategy_thenNoErrors() throws Exception {
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
+
+		String expectedQuery = aemAsyncHeadlessClient.createQuery(QUERY, null);
+		Class<?> AsyncExecutionStrategy = AsyncExecutionStrategy.class;
+
+		Mockito.<Class<?>>when(aemAsyncHeadlessClient.getExecutionStrategy()).thenReturn(AsyncExecutionStrategy);
+		JsonNode responseJson = aemAsyncHeadlessClient.stringToJson(RESPONSE_NO_ERRORS);
+		GraphQlResponse expectedGraphQlResponse = new GraphQlResponse(responseJson);
+
+		when(aemAsyncHeadlessClient.createObject(AsyncExecutionStrategy.class)).thenReturn(asyncExecutionStrategy);
+		when(asyncExecutionStrategy.execute(endpoint, expectedQuery, 200, aemAsyncHeadlessClient))
+				.thenReturn(expectedGraphQlResponse);
+
+		GraphQlResponse actualGraphQlResponse = aemAsyncHeadlessClient.executeQuery(QUERY);
+		verify(asyncExecutionStrategy, times(1)).execute(endpoint, expectedQuery, 200, aemAsyncHeadlessClient);
+		assertFalse(actualGraphQlResponse.hasErrors());
+		assertEquals(expectedGraphQlResponse.getData(), actualGraphQlResponse.getData());
+
+	}
+
+	@Test
+	void when_executeReactiveStrategy_thenSubscribeToResponse() throws Exception {
+		URI endpoint = new URI(DEFAULT_ENDPOINT);
+
+		String expectedQuery = aemReactiveHeadlessClient.createQuery(QUERY, null);
+		Class<?> ReactiveExecutionStrategy = ReactiveExecutionStrategy.class;
+
+		Mockito.<Class<?>>when(aemReactiveHeadlessClient.getExecutionStrategy()).thenReturn(ReactiveExecutionStrategy);
+		JsonNode responseJson = aemReactiveHeadlessClient.stringToJson(RESPONSE_NO_ERRORS);
+		GraphQlResponse expectedGraphQlResponse = new GraphQlResponse(responseJson);
+		Observable<GraphQlResponse> expectedObservable = Observable.just(expectedGraphQlResponse);
+
+		when(aemReactiveHeadlessClient.createObject(ReactiveExecutionStrategy.class)).thenReturn(reactiveExecutionStrategy);
+		when(reactiveExecutionStrategy.execute(endpoint, expectedQuery, 200, aemReactiveHeadlessClient))
+				.thenReturn(expectedObservable);
+
+		Observable<GraphQlResponse> actualObservable = aemReactiveHeadlessClient.executeQuery(QUERY);
+		List<GraphQlResponse> list = new ArrayList<GraphQlResponse>();
+		actualObservable.subscribe(list::add);
+		verify(reactiveExecutionStrategy, times(1)).execute(endpoint, expectedQuery, 200, aemReactiveHeadlessClient);
+		assertThat(list, notNullValue());
 	}
 
 	@Test

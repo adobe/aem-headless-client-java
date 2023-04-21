@@ -19,8 +19,8 @@ import com.adobe.aem.graphql.client.AEMHeadlessClient;
 import com.adobe.aem.graphql.client.AEMHeadlessClientException;
 import com.adobe.aem.graphql.client.GraphQlResponse;
 import com.adobe.aem.graphql.execution.AbstractExecutionStrategy;
+import com.adobe.aem.graphql.execution.Constants;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.eclipse.jetty.http.HttpHeader;
 import org.jetbrains.annotations.NotNull;
 
 import javax.ws.rs.core.MediaType;
@@ -29,23 +29,21 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.function.Function;
 
 public class AsyncExecutionStrategy extends AbstractExecutionStrategy {
 
-    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    ExecutorService executorService = Executors.newCachedThreadPool();
 
     @Override
-    public GraphQlResponse execute(@NotNull URI endPoint, @NotNull String query, int expectedCode, AEMHeadlessClient aemHeadlessClient) {
+    public GraphQlResponse execute(@NotNull URI endPoint, @NotNull String query, int expectedCode, AEMHeadlessClient aemHeadlessClient) throws InterruptedException, ExecutionException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(aemHeadlessClient.getEndpoint())
-                .header(HttpHeader.CONTENT_TYPE.asString(), MediaType.APPLICATION_JSON)
+                .header(Constants.CONTENT_TYPE.asString(), MediaType.APPLICATION_JSON)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(query.getBytes(StandardCharsets.UTF_8)));
         if (!AEMHeadlessClient.isBlank(aemHeadlessClient.getAuthorizationHeader())) {
-            requestBuilder.header(HttpHeader.AUTHORIZATION.asString(), aemHeadlessClient.getAuthorizationHeader());
+            requestBuilder.header(Constants.AUTHORIZATION.asString(), aemHeadlessClient.getAuthorizationHeader());
         }
         HttpRequest request = requestBuilder.build();
 
@@ -65,7 +63,6 @@ public class AsyncExecutionStrategy extends AbstractExecutionStrategy {
                     }
                 }, executorService);
         GraphQlResponse graphQlResponse = graphQlResponseCompletableFuture.join();
-        executorService.shutdown();
         return graphQlResponse;
     }
 }

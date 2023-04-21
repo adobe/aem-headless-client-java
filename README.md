@@ -27,6 +27,31 @@ The client comes with a transitive dependency to the Jackson JSON library that a
 
 ## Usage
 
+
+### Reactive - Creating reactive client
+```Java
+ AEMHeadlessClient<Observable<GraphQlResponse>> aemHeadlessClient = AEMHeadlessClient.<Observable<GraphQlResponse>>builder()
+                .endpoint(new URI("http://localhost:4502"))
+                .basicAuth("admin", "admin")
+                .executionStrategy(ReactiveExecutionStrategy.class)
+                .build();
+
+        Observable<GraphQlResponse> observable =aemHeadlessClient.executeQuery(query);
+        observable.subscribe((item) -> System.out.println("Reactive :: " + item.getData()));
+
+```
+
+### Async - Creating Async client
+```Java
+       AEMHeadlessClient<GraphQlResponse> aemHeadlessClient = AEMHeadlessClient.<GraphQlResponse>builder()
+        .endpoint(new URI("http://localhost:4502"))
+        .basicAuth("admin", "admin")
+        .executionStrategy(AsyncExecutionStrategy.class)
+        .build();
+        GraphQlResponse graphQlResponse= aemHeadlessClient.executeQuery(query);
+
+```
+
 ### Creating an AEMHeadless Client
 
 The easiest way to create a client looks as follows: 

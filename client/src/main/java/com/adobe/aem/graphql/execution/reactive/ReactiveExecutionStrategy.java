@@ -18,7 +18,7 @@ package com.adobe.aem.graphql.execution.reactive;
 import com.adobe.aem.graphql.client.AEMHeadlessClient;
 import com.adobe.aem.graphql.client.GraphQlResponse;
 import com.adobe.aem.graphql.execution.AbstractExecutionStrategy;
-import org.eclipse.jetty.http.HttpHeader;
+import com.adobe.aem.graphql.execution.Constants;
 import org.glassfish.jersey.client.rx.rxjava.RxObservableInvoker;
 import org.glassfish.jersey.client.rx.rxjava.RxObservableInvokerProvider;
 import org.jetbrains.annotations.NotNull;
@@ -40,7 +40,7 @@ public class ReactiveExecutionStrategy extends AbstractExecutionStrategy {
                 .register(RxObservableInvokerProvider.class);
         Invocation.Builder invocationBuilder = webTarget.request();
         if (!AEMHeadlessClient.isBlank(aemHeadlessClient.getAuthorizationHeader())) {
-            invocationBuilder.header(HttpHeader.AUTHORIZATION.asString(), aemHeadlessClient.getAuthorizationHeader());
+            invocationBuilder.header(Constants.AUTHORIZATION.asString(), aemHeadlessClient.getAuthorizationHeader());
         }
         Observable<GraphQlResponse> observable = invocationBuilder
                 .rx(RxObservableInvoker.class)
