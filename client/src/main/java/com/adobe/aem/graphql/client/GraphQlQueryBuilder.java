@@ -22,62 +22,83 @@ import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.adobe.aem.graphql.client.GraphQlQuery.Operator;
+import com.adobe.aem.graphql.client.GraphQlQuery.Option;
 import com.adobe.aem.graphql.client.GraphQlQuery.PaginationType;
 import com.adobe.aem.graphql.client.GraphQlQuery.SortBy;
 import com.adobe.aem.graphql.client.GraphQlQuery.SortingOrder;
+import com.adobe.aem.graphql.client.GraphQlQuery.Type;
 
-/**
- * Builds a GraphQL query.
- */
+/** Builds a GraphQL query. */
 public class GraphQlQueryBuilder {
 
-	/**
-	 * Create sub-selection (allowing for deep structures). Use
-	 * {@link SubSelection#field(String)} and
+	/** Create sub-selection (allowing for deep structures). Use {@link SubSelection#field(String)} and
 	 * {@link SubSelection#subSelection(String)} to create deep structures.
 	 * 
 	 * @param fieldName the field name for the sub selection
-	 * @return the sub selection
-	 * 
-	 */
+	 * @return the sub selection */
 	public static @NotNull SubSelection subSelection(String fieldName) {
 		return new SubSelection(fieldName);
+	}
+
+	/** Create filter for given field with a static value.
+	 * 
+	 * @param op the operator to use
+	 * @param staticValue the static value to filter for
+	 * @param options optional options, e.g. Options.IGNORE_CASE
+	 * @return the filter to be used in a field() method */
+	public static @NotNull Filter filter(Operator op, String staticValue, Option... options) {
+		return new Filter(op, staticValue, null, null, options);
+	}
+
+	/** Create filter for given field creating a variable.
+	 * 
+	 * @param op the operator to use
+	 * @param variable the variable name to be used with {@link AEMHeadlessClient#runQuery(GraphQlQuery, java.util.Map)}
+	 * @param options optional options, e.g. Options.IGNORE_CASE
+	 * @return the filter to be used in a field() method */
+	public static @NotNull Filter filter(Operator op, Type type, String variable, Option... options) {
+		return new Filter(op, null, type, variable, options);
 	}
 
 	private final GraphQlQuery headlessQuery;
 	private boolean sealed = false;
 
-	/**
-	 * Use {@link GraphQlQuery#builder()} to create a builder.
-	 */
+	/** Use {@link GraphQlQuery#builder()} to create a builder. */
 	GraphQlQueryBuilder() {
 		headlessQuery = new GraphQlQuery();
 	}
 
-	/**
-	 * @param name the content fragment name to to use for this query
-	 * @return the GraphQlQueryBuilder
-	 */
+	/** @param name the content fragment name to to use for this query
+	 * @return the GraphQlQueryBuilder */
 	public GraphQlQueryBuilder contentFragmentModelName(@NotNull String name) {
 		headlessQuery.setContentFragmentModelName(name);
 		return this;
 	}
-	
-	/**
-	 * @param field field name to add to the query
-	 * @return the GraphQlQueryBuilder
-	 */
+
+	/** @param field field name to add to the query
+	 * @return the GraphQlQueryBuilder */
 	public GraphQlQueryBuilder field(@NotNull String field) {
 		headlessQuery.addField(new SimpleField(field));
 		return this;
 	}
 
-	/**
-	 * @param field field class that can be either a {@link #subSelection(String)}
-	 * @return the GraphQlQueryBuilder
-	 */
+	/** @param field field class that can be either a {@link #subSelection(String)}
+	 * @return the GraphQlQueryBuilder */
 	public GraphQlQueryBuilder field(@NotNull Field field) {
 		headlessQuery.addField(field);
+		return this;
+	}
+
+	/** @param field field name to add to the query
+	 * @param filter filter class as created by either {@link #filter(Operator, String, Option...) or
+	 *            {@link #filterWithVar(Operator, String, Option...)}
+	 * @return the GraphQlQueryBuilder */
+	public GraphQlQueryBuilder field(@NotNull String field, @NotNull Filter filter) {
+		headlessQuery.addField(new SimpleField(field));
+		useFilter();
+		filter.setFieldName(field);
+		headlessQuery.addFilter(filter);
 		return this;
 	}
 
@@ -102,7 +123,8 @@ public class GraphQlQueryBuilder {
 	}
 
 	public GraphQlQueryBuilder sortBy(@NotNull String... sortByFieldWithOrderClauses) {
-		Arrays.asList(sortByFieldWithOrderClauses).stream().forEach(sortByFieldWithOrder -> headlessQuery.addSorting(new SortBy(sortByFieldWithOrder)));
+		Arrays.asList(sortByFieldWithOrderClauses).stream()
+				.forEach(sortByFieldWithOrder -> headlessQuery.addSorting(new SortBy(sortByFieldWithOrder)));
 		return this;
 	}
 
@@ -118,22 +140,16 @@ public class GraphQlQueryBuilder {
 		}
 	}
 
-	/**
-	 * Represents a generic field.
-	 */
+	/** Represents a generic field. */
 	public static interface Field {
 
-		/**
-		 * Creates the query fragment for the field.
+		/** Creates the query fragment for the field.
 		 * 
-		 * @return the query fragment as string
-		 */
+		 * @return the query fragment as string */
 		String toQueryFragment();
 	}
 
-	/**
-	 * Represents a simple field.
-	 */
+	/** Represents a simple field. */
 	public static class SimpleField implements Field {
 
 		private final String fieldName;
@@ -149,9 +165,7 @@ public class GraphQlQueryBuilder {
 		}
 	}
 
-	/**
-	 * Represents a sub selection that may contain other fields and sub selections.
-	 */
+	/** Represents a sub selection that may contain other fields and sub selections. */
 	public static class SubSelection implements Field {
 
 		private final String fieldName;
@@ -162,23 +176,19 @@ public class GraphQlQueryBuilder {
 			this.fieldsInSubSelection = new ArrayList<>();
 		}
 
-		/**
-		 * Allows to add a simple field or a sub selection
+		/** Allows to add a simple field or a sub selection
 		 * 
-		 * @param field the field 
-		 * @return the current SubSelection
-		 */
+		 * @param field the field
+		 * @return the current SubSelection */
 		public @NotNull SubSelection field(Field field) {
 			fieldsInSubSelection.add(field);
 			return this;
 		}
 
-		/**
-		 * Adds a simple field to the sub selection
+		/** Adds a simple field to the sub selection
 		 * 
 		 * @param fieldName the field name
-		 * @return the current SubSelection
-		 */
+		 * @return the current SubSelection */
 		public @NotNull SubSelection field(String fieldName) {
 			fieldsInSubSelection.add(new SimpleField(fieldName));
 			return this;
@@ -188,6 +198,54 @@ public class GraphQlQueryBuilder {
 		public String toQueryFragment() {
 			return fieldName + "{" + fieldsInSubSelection.stream().map(Field::toQueryFragment).collect(Collectors.joining(" ")) + "}";
 		}
+	}
+
+	/** Represents a simple filter item that can be added per field. */
+	static class Filter {
+
+		private String fieldName;
+		private final Operator operator;
+		private final String value;
+		private final String varName;
+		private final Type varType;
+		private final Option[] options;
+
+		Filter(Operator operator, String value, Type varType, String varName, Option... options) {
+			this.operator = operator;
+			this.value = value;
+			this.varName = varName;
+			this.varType = varType;
+			this.options = options;
+		}
+
+		void setFieldName(String fieldName) {
+			this.fieldName = fieldName;
+		}
+
+		String getFieldName() {
+			return fieldName;
+		}
+
+		Operator getOperator() {
+			return operator;
+		}
+
+		String getValue() {
+			return value;
+		}
+
+		String getVarName() {
+			return varName;
+		}
+
+		Type getVarType() {
+			return varType;
+		}
+
+		Option[] getOptions() {
+			return options;
+		}
+
 	}
 
 }
