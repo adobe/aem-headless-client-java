@@ -54,6 +54,7 @@ public class GraphQlQueryBuilder {
 	/** Create filter for given field creating a variable.
 	 * 
 	 * @param op the operator to use
+	 * @param type the type of the variable
 	 * @param variable the variable name to be used with {@link AEMHeadlessClient#runQuery(GraphQlQuery, java.util.Map)}
 	 * @param options optional options, e.g. Options.IGNORE_CASE
 	 * @return the filter to be used in a field() method */
@@ -97,6 +98,33 @@ public class GraphQlQueryBuilder {
 	public GraphQlQueryBuilder field(@NotNull String field, @NotNull Filter filter) {
 		headlessQuery.addField(new SimpleField(field));
 		useFilter();
+		filter.setFieldName(field);
+		headlessQuery.addFilter(filter);
+		return this;
+	}
+	
+	/** @param field the field to filter for
+	 * @param op the operator for the expression
+	 * @param staticValue the value to filter for
+	 * @param options options
+	 * @return the GraphQlQueryBuilder */
+	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, String staticValue, Option... options) {
+		useFilter();
+		Filter filter = new Filter(op, staticValue, null, null, options);
+		filter.setFieldName(field);
+		headlessQuery.addFilter(filter);
+		return this;
+	}
+
+	/** @param field the field to filter for
+	 * @param op the operator for the expression
+	 * @param type the type of the variable
+	 * @param variable the variable name to be used with {@link AEMHeadlessClient#runQuery(GraphQlQuery, java.util.Map)}
+	 * @param options options
+	 * @return the GraphQlQueryBuilder */
+	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, Type type, String variable, Option... options) {
+		useFilter();
+		Filter filter = new Filter(op, null, type, variable, options);
 		filter.setFieldName(field);
 		headlessQuery.addFilter(filter);
 		return this;
