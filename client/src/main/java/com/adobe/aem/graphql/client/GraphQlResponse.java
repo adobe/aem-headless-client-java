@@ -142,11 +142,14 @@ public class GraphQlResponse {
 			return null;
 		}
 		List<T> result = new ArrayList<>();
-		for (JsonNode jsonNode : itemsJson) {
-			try {
-				result.add(mapper.treeToValue(jsonNode, clazz));
-			} catch (JsonProcessingException | IllegalArgumentException e) {
-				throw new IllegalStateException("Could not convert item " + jsonNode + " to class " + clazz, e);
+		JsonNode itemsRaw = getItems();
+		if(itemsRaw != null) {
+			for (JsonNode jsonNode : itemsRaw) {
+				try {
+					result.add(mapper.treeToValue(jsonNode, clazz));
+				} catch (JsonProcessingException | IllegalArgumentException e) {
+					throw new IllegalStateException("Could not convert item " + jsonNode + " to class " + clazz, e);
+				}
 			}
 		}
 		return result;

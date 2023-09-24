@@ -32,6 +32,7 @@ public class GraphQlQueryVars extends HashMap<String, Object> implements Map<Str
 	static final String QUERY_VAR_FIRST = "first";
 	static final String QUERY_VAR_OFFSET = "offset";
 	static final String QUERY_VAR_LIMIT = "limit";
+	static final String QUERY_VAR_FILTER = "filter";
 
 	/**
 	 * Create a query variables object that can be used to set default query

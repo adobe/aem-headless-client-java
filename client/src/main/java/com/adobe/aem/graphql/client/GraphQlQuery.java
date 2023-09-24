@@ -16,7 +16,8 @@
 package com.adobe.aem.graphql.client;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,38 +26,41 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 
 import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Field;
+import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Filter;
+import com.adobe.aem.graphql.client.GraphQlQueryBuilder.FilterOption;
 
 /** Represents a GraphQl query to be used with {@link AEMHeadlessClient}. */
 public class GraphQlQuery {
 
-	/**
-	 * Builder that allows to configure all available options of the
-	 * {@code AEMHeadlessQuery}
+	private static final String SUFFIX_CF_MODEL_FILTER = "ModelFilter";
+
+	/** Builder that allows to configure all available options of the {@code AEMHeadlessQuery}
 	 * 
-	 * @return builder
-	 * 
-	 */
+	 * @return builder */
 	public static @NotNull GraphQlQueryBuilder builder() {
 		return new GraphQlQueryBuilder();
 	}
-	
-	/**
-	 * The sorting order for GraphQL queries. 
-	 *
-	 */
+
+	/** The sorting order for GraphQL queries. */
 	public enum SortingOrder {
 		ASC, DESC
 	}
 
-	/**
-	 * The pagination type for GraphQL queries. 
-	 */
+	/** The pagination type for GraphQL queries. */
 	public enum PaginationType {
 		NONE, CURSOR, OFFSET_LIMIT;
 
 		boolean isCursor() {
 			return this == CURSOR;
 		}
+	}
+
+	public enum Operator {
+		EQUALS, EQUALS_NOT, CONTAINS, CONTAINS_NOT, STARTS_WITH, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL, AT, NOT_AT, BEFORE, AT_OR_BEFORE, AFTER, AT_OR_AFTER
+	}
+
+	public enum Type {
+		Int, Float, String, Boolean, ID, Date
 	}
 
 	static class SortBy {
@@ -76,11 +80,14 @@ public class GraphQlQuery {
 					: SortingOrder.ASC;
 		}
 	}
-	
+
 	private String contentFragementModelName;
 	private PaginationType paginationType = PaginationType.NONE;
 	private List<Field> fields = new ArrayList<>();
 	private List<SortBy> sortByList = new ArrayList<>();
+	private List<Filter> filtersList = new ArrayList<>();
+
+	private boolean isDeclareContentFragmentModelFilter = false;
 
 	GraphQlQuery() {
 		// used by builder only
@@ -92,6 +99,14 @@ public class GraphQlQuery {
 
 	void addField(Field field) {
 		this.fields.add(field);
+	}
+
+	void addFilter(Filter filter) {
+		this.filtersList.add(filter);
+	}
+
+	void setDeclareContentFragmentModelFilter(boolean isDeclareContentFragmentModelFilter) {
+		this.isDeclareContentFragmentModelFilter = isDeclareContentFragmentModelFilter;
 	}
 
 	void addSorting(SortBy sortBy) {
@@ -110,30 +125,82 @@ public class GraphQlQuery {
 	public String generateQuery() {
 		StringBuilder buf = new StringBuilder();
 
-		Map<String, Object> effectiveTopLevelQueryArguments = new HashMap<>();
+		Map<String, String> queryVarDeclarations = new LinkedHashMap<>();
+		Map<String, Object> effectiveTopLevelQueryArguments = new LinkedHashMap<>();
 
-		if (!sortByList.isEmpty()) {
-			effectiveTopLevelQueryArguments.put("sort", getSortParamValue());
-		}
-
-		buf.append("query ");
 		switch (paginationType) {
 		case CURSOR:
 			String varAfter = "$" + GraphQlQueryVars.QUERY_VAR_AFTER;
 			String varFirst = "$" + GraphQlQueryVars.QUERY_VAR_FIRST;
-			buf.append("(" + varAfter + ": String, " + varFirst + ": Int) ");
+
+			queryVarDeclarations.put(varAfter, "String");
+			queryVarDeclarations.put(varFirst, "Int");
+
 			effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_AFTER, varAfter);
 			effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_FIRST, varFirst);
 			break;
 		case OFFSET_LIMIT:
 			String varOffset = "$" + GraphQlQueryVars.QUERY_VAR_OFFSET;
 			String varLimit = "$" + GraphQlQueryVars.QUERY_VAR_LIMIT;
-			buf.append("(" + varOffset + ": Int, " + varLimit + ": Int) ");
+
+			queryVarDeclarations.put(varOffset, "Int");
+			queryVarDeclarations.put(varLimit, "Int");
+
 			effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_OFFSET, varOffset);
 			effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_LIMIT, varLimit);
 			break;
 		default: // do nothing
 		}
+
+		if (!sortByList.isEmpty()) {
+			effectiveTopLevelQueryArguments.put("sort", getSortParamValue());
+		}
+
+		if (isDeclareContentFragmentModelFilter) {
+			if (filtersList.isEmpty()) { // create generic filter
+				String varFilter = "$" + GraphQlQueryVars.QUERY_VAR_FILTER;
+				String modelFilterType = contentFragementModelName.substring(0, 1).toUpperCase() + contentFragementModelName.substring(1)
+						+ SUFFIX_CF_MODEL_FILTER;
+				queryVarDeclarations.put(varFilter, modelFilterType);
+				effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_FILTER, varFilter);
+			} else {
+
+				List<String> filterClauses = new ArrayList<>();
+				for (Filter filter : filtersList) {
+
+					StringBuilder filterClause = new StringBuilder();
+					filterClause.append(filter.getFieldName() + ": { _expressions: [ { _operator: " + filter.getOperator().name() + ", ");
+					if (filter.getOptions() != null && filter.getOptions().length > 0) {
+						String filterOptionsStr = 
+								Arrays.stream(filter.getOptions()).map(FilterOption::toString).collect(Collectors.joining(",\n")) 
+								+ ", ";
+						filterClause.append(filterOptionsStr);
+					}
+					if (filter.getValue() != null) {
+						Object val = filter.getValue();
+						boolean isNumber = val instanceof Number;
+						boolean isBool = val instanceof Boolean;
+						boolean quotesNeeded = !isNumber && !isBool;
+						filterClause.append("value: " + (quotesNeeded ? "\"" : "") + val + (quotesNeeded ? "\"" : ""));
+					} else {
+						String varName = "$" + filter.getVarName();
+						filterClause.append("value: " + varName);
+						queryVarDeclarations.put(varName, filter.getVarType().toString());
+					}
+					filterClause.append("}]}");
+					filterClauses.add(filterClause.toString());
+				}
+				effectiveTopLevelQueryArguments.put(GraphQlQueryVars.QUERY_VAR_FILTER, "{\n" + String.join(",\n", filterClauses) + "\n}");
+			}
+		}
+
+		buf.append("query ");
+
+		if (!queryVarDeclarations.isEmpty()) {
+			buf.append("(" + queryVarDeclarations.entrySet().stream().map(e -> (e.getKey() + ": " + e.getValue()))
+					.collect(Collectors.joining(", ")) + ")");
+		}
+
 		buf.append(" { \n");
 		buf.append("  " + contentFragementModelName);
 		buf.append(paginationType.isCursor() ? "Paginated" : "List");
@@ -150,7 +217,13 @@ public class GraphQlQuery {
 				}
 				buf.append(key + ": ");
 				Object val = entry.getValue();
-				if (val instanceof Number || ((val instanceof String) && ((String) val).startsWith("$"))) {
+
+				boolean valIsNumber = (val instanceof Number);
+				boolean valIsString = (val instanceof String);
+				String stringVal = String.valueOf(val);
+				boolean isVariable = valIsString && stringVal.startsWith("$");
+				boolean isBlock = valIsString && stringVal.startsWith("{") && stringVal.endsWith("}");
+				if (valIsNumber || isVariable || isBlock) {
 					buf.append(val);
 				} else {
 					buf.append("\"" + val + "\"");
@@ -169,6 +242,7 @@ public class GraphQlQuery {
 
 		buf.append("  }\n");
 		buf.append("}\n");
+
 		return buf.toString();
 	}
 }
