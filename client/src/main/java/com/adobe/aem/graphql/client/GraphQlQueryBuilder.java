@@ -122,7 +122,7 @@ public class GraphQlQueryBuilder {
 	 * @param staticValue the value to filter for
 	 * @param options options, e.g. {@link #ignoreCase()} or {@link #sensitiveness(double)}
 	 * @return the GraphQlQueryBuilder */
-	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, String staticValue, FilterOption... options) {
+	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, Object staticValue, FilterOption... options) {
 		useFilter();
 		Filter filter = new Filter(op, staticValue, null, null, options);
 		filter.setFieldName(field);

@@ -170,7 +170,7 @@ public class GraphQlQuery {
 
 					StringBuilder filterClause = new StringBuilder();
 					filterClause.append(filter.getFieldName() + ": { _expressions: [ { _operator: " + filter.getOperator().name() + ", ");
-					if (filter.getOptions() != null) {
+					if (filter.getOptions() != null && filter.getOptions().length > 0) {
 						String filterOptionsStr = 
 								Arrays.stream(filter.getOptions()).map(FilterOption::toString).collect(Collectors.joining(",\n")) 
 								+ ", ";

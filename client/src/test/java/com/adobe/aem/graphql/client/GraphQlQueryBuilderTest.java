@@ -15,12 +15,17 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.client;
 
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.filter;
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.sensitiveness;
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.ignoreCase;
 import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.subSelection;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
+import com.adobe.aem.graphql.client.GraphQlQuery.Operator;
 import com.adobe.aem.graphql.client.GraphQlQuery.PaginationType;
+import com.adobe.aem.graphql.client.GraphQlQuery.Type;
 
 class GraphQlQueryBuilderTest {
 
@@ -42,6 +47,126 @@ class GraphQlQueryBuilderTest {
 				.field(subSelection("authorFragment").field("firstName").field("lastName"))
 				.sortBy("title ASC", "_path DESC")
 				.build().generateQuery());
+	}
+
+	@Test
+	void testSimpleQueryFiltering() {
+
+		String expectedQuery = "query  { \n"
+				+ "  adventureList(sort: \"title ASC\", filter: {\n"
+				+ "price: { _expressions: [ { _operator: LOWER, value: 154}]}\n"
+				+ "}) {\n"
+				+ "    items {\n"
+				+ "      _path\n"
+				+ "      title\n"
+				+ "      price\n"
+				+ "    }\n"
+				+ "  }\n"
+				+ "}\n";
+
+		// using explicit filter on top level
+		assertEquals(expectedQuery, GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title") 
+				.field("price")
+				.filter("price", Operator.LOWER, 154)
+				.sortBy("title ASC")
+				.build().generateQuery());
+		
+		// using second parameter as shortcut (with exact same result
+		assertEquals(expectedQuery, GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title") 
+				.field("price", filter(Operator.LOWER, 154))
+				.sortBy("title ASC")
+				.build().generateQuery());
+	}
+	
+	@Test
+	void testQueryFilteringWithOptions() {
+
+		// using second parameter as shortcut (with exact same result
+		assertEquals("query  { \n"
+				+ "  adventureList(sort: \"title ASC\", filter: {\n"
+				+ "title: { _expressions: [ { _operator: CONTAINS, _ignoreCase: true, value: \"gastronomic\"}]},\n"
+				+ "price: { _expressions: [ { _operator: LOWER, _sensitiveness: 0.1, value: 154}]}\n"
+				+ "}) {\n"
+				+ "    items {\n"
+				+ "      _path\n"
+				+ "      title\n"
+				+ "      price\n"
+				+ "    }\n"
+				+ "  }\n"
+				+ "}\n", GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title", filter(Operator.CONTAINS, "gastronomic", ignoreCase())) 
+				.field("price", filter(Operator.LOWER, 154, sensitiveness(0.1)))
+				.sortBy("title ASC")
+				.build().generateQuery());
+
+	}
+	
+	@Test
+	void testSimpleQueryFilteringWithVariable() {
+
+		String expectedQuery = "query ($priceThreshold: Float) { \n"
+				+ "  adventureList(sort: \"title ASC\", filter: {\n"
+				+ "price: { _expressions: [ { _operator: LOWER, value: $priceThreshold}]}\n"
+				+ "}) {\n"
+				+ "    items {\n"
+				+ "      _path\n"
+				+ "      title\n"
+				+ "      price\n"
+				+ "    }\n"
+				+ "  }\n"
+				+ "}\n";
+
+		// using explicit filter on top level
+		assertEquals(expectedQuery, GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title") 
+				.field("price")
+				.filter("price", Operator.LOWER, Type.Float, "priceThreshold")
+				.sortBy("title ASC")
+				.build().generateQuery());
+		
+		// using second parameter as shortcut (with exact same result
+		assertEquals(expectedQuery, GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title") 
+				.field("price", filter(Operator.LOWER, Type.Float, "priceThreshold"))
+				.sortBy("title ASC")
+				.build().generateQuery());
+	}
+	
+	@Test
+	void testQueryWithGenericFilterVar() {
+
+		String expectedQuery = "query ($filter: AdventureModelFilter) { \n"
+				+ "  adventureList(sort: \"title ASC\", filter: $filter) {\n"
+				+ "    items {\n"
+				+ "      _path\n"
+				+ "      title\n"
+				+ "      price\n"
+				+ "    }\n"
+				+ "  }\n"
+				+ "}\n";
+
+		// using explicit filter on top level
+		assertEquals(expectedQuery, GraphQlQuery.builder()
+				.contentFragmentModelName("adventure")
+				.field("_path")
+				.field("title") 
+				.field("price")
+				.useFilter()
+				.sortBy("title ASC")
+				.build().generateQuery());
+
 	}
 	
 	@Test
