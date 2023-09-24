@@ -219,6 +219,90 @@ GraphQlQuery queryCursorPaging = GraphQlQuery.builder()
 ```
 Sub selections can be nested (the `field` method of the sub selection also sub selections in the same way as the top-level `field` method does).
 
+### Using Filtering
+
+The query builder supports basic filtering as follows:
+
+```java
+GraphQlQuery queryWithFiltering = GraphQlQuery.builder()
+		.contentFragmentModelName("adventure")
+		.field("_path")
+		.field("title") 
+		.field("price")
+		.filter("price", Operator.LOWER, 154)
+		.sortBy("title ASC")
+		.build()
+```
+For simple cases, the filter can be given directly to the field method to keep the code DRY (no need to mention 'price' twice):
+
+```java
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.filter;
+...
+GraphQlQuery queryWithFiltering = GraphQlQuery.builder()
+		.contentFragmentModelName("adventure")
+		.field("_path")
+		.field("title") 
+		.field("price", filter(Operator.LOWER, 154))
+		.sortBy("title ASC")
+		.build()
+```
+It is also possible to pass in options as supported by the AEM backend:
+
+```java
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.ignoreCase;
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.sensitiveness;
+...
+GraphQlQuery queryWithFiltering = GraphQlQuery.builder()
+		.contentFragmentModelName("adventure")
+		.field("_path")
+		.field("title", filter(Operator.CONTAINS, "gastronomic", ignoreCase())) 
+		.field("price", filter(Operator.LOWER, 154, sensitiveness(0.1)))
+		.sortBy("title ASC")
+		.build()
+```
+A filter value can also be set by a query variable:
+
+```java
+GraphQlQuery queryWithFilterVar = GraphQlQuery.builder()
+		.contentFragmentModelName("adventure")
+		.field("_path")
+		.field("title") 
+		.field("price", filter(Operator.LOWER, Type.Float, "maxPrice")) 
+		.sortBy("title ASC", "_path DESC")
+		.build();
+
+GraphQlQueryVars vars = GraphQlQueryVars.create();
+vars.put("maxPrice", 200);
+GraphQlResponse response = client.runQuery(queryWithFilterVar, vars);
+...
+```
+Finally it is also possible to pass the whole filter as variable:
+
+```java
+GraphQlQuery queryWithFilter = GraphQlQuery.builder()
+		.contentFragmentModelName("article")
+		.field("_path")
+		.field("title")
+		.useFilter()
+		.field(subSelection("authorFragment").field("firstName").field("lastName"))
+		.sortBy("title ASC", "_path DESC")
+		.build();
+
+Map<String,Object> filter = new HashMap<>();
+Map<String,Object> filterTitle = new HashMap<>();
+filter.put("title", filterTitle);
+Map<String,Object> filterTitleExpressions = new HashMap<>();
+filterTitle.put("_expressions", filterTitleExpressions);
+filterTitleExpressions.put("value", "surf");
+filterTitleExpressions.put("_operator", "CONTAINS");
+filterTitleExpressions.put("_ignoreCase", true);
+
+GraphQlQueryVars vars = GraphQlQueryVars.create().addVar("filter", filter);
+GraphQlResponse response = client.runQuery(queryWithFilter, vars);
+...
+```
+
+
 ### Using Pagination
 
 The query builder supports building queries with pagination:
