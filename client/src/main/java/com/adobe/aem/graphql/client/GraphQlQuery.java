@@ -27,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Field;
 import com.adobe.aem.graphql.client.GraphQlQueryBuilder.Filter;
+import com.adobe.aem.graphql.client.GraphQlQueryBuilder.FilterOption;
 
 /** Represents a GraphQl query to be used with {@link AEMHeadlessClient}. */
 public class GraphQlQuery {
@@ -56,10 +57,6 @@ public class GraphQlQuery {
 
 	public enum Operator {
 		EQUALS, EQUALS_NOT, CONTAINS, CONTAINS_NOT, STARTS_WITH, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL, AT, NOT_AT, BEFORE, AT_OR_BEFORE, AFTER, AT_OR_AFTER
-	}
-
-	public enum Option {
-		IGNORE_CASE
 	}
 
 	public enum Type {
@@ -173,18 +170,16 @@ public class GraphQlQuery {
 
 					StringBuilder filterClause = new StringBuilder();
 					filterClause.append(filter.getFieldName() + ": { _expressions: [ { _operator: " + filter.getOperator().name() + ", ");
-					if (filter.getOptions() != null && Arrays.asList(filter.getOptions()).contains(Option.IGNORE_CASE)) {
-						filterClause.append("_ignoreCase: true, ");
+					if (filter.getOptions() != null) {
+						String filterOptionsStr = 
+								Arrays.stream(filter.getOptions()).map(FilterOption::toString).collect(Collectors.joining(",\n")) 
+								+ ", ";
+						filterClause.append(filterOptionsStr);
 					}
 					if (filter.getValue() != null) {
-						String val = filter.getValue();
-						boolean isNumber = true;
-						try {
-							Float.parseFloat(val);
-						} catch (NumberFormatException e) {
-							isNumber = false;
-						}
-						boolean isBool = "true".equals(val) || "false".equals(val);
+						Object val = filter.getValue();
+						boolean isNumber = val instanceof Number;
+						boolean isBool = val instanceof Boolean;
 						boolean quotesNeeded = !isNumber && !isBool;
 						filterClause.append("value: " + (quotesNeeded ? "\"" : "") + val + (quotesNeeded ? "\"" : ""));
 					} else {

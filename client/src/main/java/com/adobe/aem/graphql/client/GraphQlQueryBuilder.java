@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 
 import com.adobe.aem.graphql.client.GraphQlQuery.Operator;
-import com.adobe.aem.graphql.client.GraphQlQuery.Option;
 import com.adobe.aem.graphql.client.GraphQlQuery.PaginationType;
 import com.adobe.aem.graphql.client.GraphQlQuery.SortBy;
 import com.adobe.aem.graphql.client.GraphQlQuery.SortingOrder;
@@ -45,9 +44,9 @@ public class GraphQlQueryBuilder {
 	 * 
 	 * @param op the operator to use
 	 * @param staticValue the static value to filter for
-	 * @param options optional options, e.g. Options.IGNORE_CASE
+	 * @param options optional options, e.g. {@link #ignoreCase()} or {@link #sensitiveness(double)}
 	 * @return the filter to be used in a field() method */
-	public static @NotNull Filter filter(Operator op, String staticValue, Option... options) {
+	public static @NotNull Filter filter(Operator op, Object staticValue, FilterOption... options) {
 		return new Filter(op, staticValue, null, null, options);
 	}
 
@@ -56,10 +55,25 @@ public class GraphQlQueryBuilder {
 	 * @param op the operator to use
 	 * @param type the type of the variable
 	 * @param variable the variable name to be used with {@link AEMHeadlessClient#runQuery(GraphQlQuery, java.util.Map)}
-	 * @param options optional options, e.g. Options.IGNORE_CASE
+	 * @param options optional options, e.g. {@link #ignoreCase()} or {@link #sensitiveness(double)}
 	 * @return the filter to be used in a field() method */
-	public static @NotNull Filter filter(Operator op, Type type, String variable, Option... options) {
+	public static @NotNull Filter filter(Operator op, Type type, String variable, FilterOption... options) {
 		return new Filter(op, null, type, variable, options);
+	}
+
+	/**
+	 * @return the ignore case filter option
+	 */
+	public static @NotNull FilterOption ignoreCase() {
+		return FilterOption.IGNORE_CASE;
+	}
+	
+	/**
+	 * @param sensitiveness the sensitiveness
+	 * @return the sensitiveness filter option with the given sensitiveness
+	 */
+	public static @NotNull FilterOption sensitiveness(double sensitiveness) {
+		return new FilterOption("_sensitiveness: " + sensitiveness);
 	}
 
 	private final GraphQlQuery headlessQuery;
@@ -92,8 +106,8 @@ public class GraphQlQueryBuilder {
 	}
 
 	/** @param field field name to add to the query
-	 * @param filter filter class as created by either {@link #filter(Operator, String, Option...) or
-	 *            {@link #filterWithVar(Operator, String, Option...)}
+	 * @param filter filter class as created by either {@link #filter(Operator, Object, FilterOption...)} or
+	 *            {@link #filter(Operator, Type, String, FilterOption...)}
 	 * @return the GraphQlQueryBuilder */
 	public GraphQlQueryBuilder field(@NotNull String field, @NotNull Filter filter) {
 		headlessQuery.addField(new SimpleField(field));
@@ -106,9 +120,9 @@ public class GraphQlQueryBuilder {
 	/** @param field the field to filter for
 	 * @param op the operator for the expression
 	 * @param staticValue the value to filter for
-	 * @param options options
+	 * @param options options, e.g. {@link #ignoreCase()} or {@link #sensitiveness(double)}
 	 * @return the GraphQlQueryBuilder */
-	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, String staticValue, Option... options) {
+	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, String staticValue, FilterOption... options) {
 		useFilter();
 		Filter filter = new Filter(op, staticValue, null, null, options);
 		filter.setFieldName(field);
@@ -120,9 +134,9 @@ public class GraphQlQueryBuilder {
 	 * @param op the operator for the expression
 	 * @param type the type of the variable
 	 * @param variable the variable name to be used with {@link AEMHeadlessClient#runQuery(GraphQlQuery, java.util.Map)}
-	 * @param options options
+	 * @param options options, e.g. {@link #ignoreCase()} or {@link #sensitiveness(double)}
 	 * @return the GraphQlQueryBuilder */
-	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, Type type, String variable, Option... options) {
+	public GraphQlQueryBuilder filter(@NotNull String field, Operator op, Type type, String variable, FilterOption... options) {
 		useFilter();
 		Filter filter = new Filter(op, null, type, variable, options);
 		filter.setFieldName(field);
@@ -233,12 +247,12 @@ public class GraphQlQueryBuilder {
 
 		private String fieldName;
 		private final Operator operator;
-		private final String value;
+		private final Object value;
 		private final String varName;
 		private final Type varType;
-		private final Option[] options;
+		private final FilterOption[] options;
 
-		Filter(Operator operator, String value, Type varType, String varName, Option... options) {
+		Filter(Operator operator, Object value, Type varType, String varName, FilterOption... options) {
 			this.operator = operator;
 			this.value = value;
 			this.varName = varName;
@@ -258,7 +272,7 @@ public class GraphQlQueryBuilder {
 			return operator;
 		}
 
-		String getValue() {
+		Object getValue() {
 			return value;
 		}
 
@@ -270,10 +284,26 @@ public class GraphQlQueryBuilder {
 			return varType;
 		}
 
-		Option[] getOptions() {
+		FilterOption[] getOptions() {
 			return options;
 		}
 
 	}
 
+	public static class FilterOption {
+		
+		@NotNull 
+		private static final FilterOption IGNORE_CASE = new FilterOption("_ignoreCase: true");
+		
+		private final String optionString;
+
+		private FilterOption(String optionString) {
+			super();
+			this.optionString = optionString;
+		}
+		
+		public String toString() { 
+			return optionString;
+		}
+	}
 }
