@@ -137,6 +137,10 @@ public class GraphQlResponse {
 
 		ObjectMapper mapper = new ObjectMapper();
 
+		JsonNode itemsJson = getItems();
+		if (itemsJson == null) {
+			return null;
+		}
 		List<T> result = new ArrayList<>();
 		JsonNode itemsRaw = getItems();
 		if(itemsRaw != null) {
@@ -248,7 +252,10 @@ public class GraphQlResponse {
 		@Override
 		public boolean hasNext() {
 			if (hasMore == null) {
-				firstGraphQlResponse = nextInternal();
+				// we have not run any query and don't have a page info object with its hasNextPage property yet
+				firstGraphQlResponse = runQueryForNextPage();
+				// hasMore is initialised now for the next call of hasNext(), but for the initial call hasNext() is true if there are items in the initial response
+				return firstGraphQlResponse.hasItems();
 			}
 			return hasMore;
 		}
@@ -268,10 +275,10 @@ public class GraphQlResponse {
 				throw new IllegalStateException("There are no more results availalbe");
 			}
 
-			return nextInternal();
+			return runQueryForNextPage();
 		}
 
-		private GraphQlResponse nextInternal() {
+		private GraphQlResponse runQueryForNextPage() {
 			GraphQlQueryVars effectiveVars = GraphQlQueryVars.create(variables).first(pageSize).after(endCursor);
 
 			GraphQlResponse response;

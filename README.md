@@ -10,9 +10,9 @@ Add the following dependency to your classpath:
 
 ```xml
 <dependency>
-	<groupId>com.adobe.aem.headless</groupId>
-	<artifactId>aem-headless-client-java</artifactId>
-	<version>0.8.0</version>
+    <groupId>com.adobe.aem.headless</groupId>
+    <artifactId>aem-headless-client-java</artifactId>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -20,8 +20,8 @@ The client comes with a transitive dependency to the Jackson JSON library that a
  
 ```xml
 <dependency>
-	<groupId>com.fasterxml.jackson.core</groupId>
-	<artifactId>jackson-databind</artifactId>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
 </dependency>
 ```
 
@@ -83,27 +83,26 @@ AEMHeadlessClient aemHeadlessClient = AEMHeadlessClient.builder().
    .build();
 ```
 
-
 ### Running Queries 
 
 To execute a simple GraphQL query:
 
 ```java
 String query = "{\n" + 
-				"  articleList{\n" + 
-				"    items{ \n" + 
-				"      _path\n" + 
-				"    } \n" + 
-				"  }\n" + 
-				"}";
+               "  articleList{\n" + 
+               "    items{ \n" + 
+               "      _path\n" + 
+               "    } \n" + 
+               "  }\n" + 
+               "}";
 
 try {
-	GraphQlResponse response = aemHeadlessClient.runQuery(query);
-	JsonNode data = response.getData();
-	// ... use the data
+    GraphQlResponse response = aemHeadlessClient.runQuery(query);
+    JsonNode data = response.getData();
+    // ... use the data
 } catch(AEMHeadlessClientException e) {
-	// e.getMessage() will contain an error message (independent of type of error)
-	// if a response was received, e.getGraphQlResponse() will return it (otherwise null)
+    // e.getMessage() will contain an error message (independent of type of error)
+    // if a response was received, e.getGraphQlResponse() will return it (otherwise null)
 }
 ```
 
@@ -112,22 +111,172 @@ It is also possible to pass in query parameters using a simple map as second par
 ```
 GraphQlResponse response = client.runQuery(query, Map.of("author", "Ian Provo"));
 ```
+### Mapping results to Java POJOs 
 
+To not have to deal with JSON maps and arrays in Java, it is easy to define POJOs and let Jackson (the JSON API used by this library) do the mapping. For non-default mapping any default annotatinos from the Jackson library can be used (e.g. `@JsonSetter`). Results of sub selections can be mapped by using POJOs as member field.
 
+Example POJOs:
+
+```
+@JsonIgnoreProperties(ignoreUnknown = true)
+public static class Article {
+    private String path;
+    private String title;
+    private Author author;
+
+    String getPath() {
+        return path;
+    }
+
+    @JsonSetter("_path")
+    void setPath(String path) {
+        this.path = path;
+    }
+
+    String getTitle() {
+        return title;
+    }
+
+    void setTitle(String title) {
+        this.title = title;
+    }
+
+    Author getAuthor() {
+        return author;
+    }
+
+    @JsonSetter("authorFragment")
+    void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    @Override
+    public String toString() {
+        return "Article [path=" + path + ", title=" + title + ", author=" + author + "]";
+}
+    
+public static class Author {
+    private String firstName;
+    private String lastName;
+
+    String getFirstName() {
+        return firstName;
+    }
+
+    void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    String getLastName() {
+        return lastName;
+    }
+
+    void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    @Override
+    public String toString() {
+        return firstName + " " + lastName;
+    }
+}
+```
+
+To use the automatic mapping, the `GraphQlResponse ` provides the `getItems(Class<?>)` method:
+
+```java
+GraphQlResponse response = aemHeadlessClient.runQuery(query);
+List<Article> listOfArticles = response.getItems(Article.class);        
+```
+ 
+
+### Using the Query Builder
+
+There is a query builder that simplifies creating the queries using the builder pattern:
+
+```java
+GraphQlQuery queryCursorPaging = GraphQlQuery.builder()
+        .contentFragmentModelName("article")
+        .field("_path")
+        .field("title")
+        .build();
+GraphQlResponse response = aemHeadlessClient.runQuery(query);
+List<Article> data = response.getItems(Article.class);        
+```
+
+It is also possible to create queries with sub selections and add sorting as follows:
+
+```java
+import static com.adobe.aem.graphql.client.GraphQlQueryBuilder.subSelection;
+...
+GraphQlQuery queryCursorPaging = GraphQlQuery.builder()
+        .contentFragmentModelName("article")
+        .field("_path")
+        .field("title")
+        .field(subSelection("authorFragment").field("firstName").field("lastName"))
+        .sortBy("title ASC", "_path DESC")
+        .build();
+```
+Sub selections can be nested (the `field` method of the sub selection also sub selections in the same way as the top-level `field` method does).
+
+### Using Pagination
+
+The query builder supports building queries with pagination:
+
+```java
+GraphQlQuery queryCursorPaging = GraphQlQuery.builder()
+        .contentFragmentModelName("article")
+        .field("_path")
+        .field("title")
+        .paginated()
+        .sortBy("title ASC")
+        .build();
+```
+To run those queries, the client allows to retrieve a paging cursor and use the `hasNext()` and `next()` methods on it:
+
+```java
+GraphQlPagingCursor respCursor = client.createPagingCursor(queryCursorPaging, /* page size */ 10);
+while (respCursor.hasNext()) {
+    GraphQlResponse resp = respCursor.next();
+    for (Article article : resp.getItems(Article.class)) {
+        // do something with the article
+    }
+}
+
+```
+
+There is also the option to use offset/limit-based pagination - this is supported but whenever possible the cursor based approach above should be preferred. Here is an example of the offset based approach:
+
+```java
+GraphQlQuery queryOffsetPaging = GraphQlQuery.builder()
+        .contentFragmentModelName("article")
+        .field("_path")
+        .field("title")
+        .paginated(GraphQlQuery.PaginationType.OFFSET_LIMIT)
+        .sortBy("title ASC")
+        .build();
+GraphQlResponse respPagingOffset;
+for(int pageNo = 0; (respPagingOffset = client.runQuery(queryOffsetPaging, pageNo * pageSize, pageSize)).hasItems(); pageNo++) {
+    for (Article article : respPagingOffset.getItems(Article.class)) {
+        // do something with the article
+    }
+}
+```
+
+ 
 ### Using Persisted Queries
 
 To execute a persisted query the the method `runPersistedQuery` is used:
 
 ```java
-
 try {
    // for this to work, "/myProj/queryName" needs to be set up on AEM side
-	GraphQlResponse response = aemHeadlessClient.runPersistedQuery("/myProj/queryName");
-	JsonNode data = response.getData();
-	// ... use the data
+    GraphQlResponse response = aemHeadlessClient.runPersistedQuery("/myProj/queryName");
+    JsonNode data = response.getData();
+    // ... use the data
 } catch(AEMHeadlessClientException e) {
-	// e.getMessage() will contain an error message (independent of type of error)
-	// if a response was received, e.getGraphQlResponse() return it (otherwise null)
+    // e.getMessage() will contain an error message (independent of type of error)
+    // if a response was received, e.getGraphQlResponse() return it (otherwise null)
 }
 ```
 

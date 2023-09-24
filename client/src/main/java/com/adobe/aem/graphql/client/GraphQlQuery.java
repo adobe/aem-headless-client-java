@@ -222,6 +222,7 @@ public class GraphQlQuery {
 				}
 				buf.append(key + ": ");
 				Object val = entry.getValue();
+
 				boolean valIsNumber = (val instanceof Number);
 				boolean valIsString = (val instanceof String);
 				String stringVal = String.valueOf(val);

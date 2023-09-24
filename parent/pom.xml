@@ -20,7 +20,7 @@
     <groupId>com.adobe.aem.headless</groupId>
     <artifactId>aem-headless-client-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.8.1-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
 
     <name>AEM GraphQL Headless Client Parent</name>
     <description>AEM GraphQL Headless Client Parent Parent Pom</description>
@@ -170,11 +170,6 @@
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
                     <version>4.2.1</version>
-                    <configuration>
-                        <instructions>
-                            <Bundle-RequiredExecutionEnvironment>JavaSE-1.${java.version}</Bundle-RequiredExecutionEnvironment>
-                        </instructions>
-                    </configuration>
                     <executions>
                         <execution>
                             <id>baseline</id>
@@ -202,7 +197,7 @@
                                     <requireJavaVersion>
                                         <message>Project must be compiled with Java ${java.version} or
                                             higher</message>
-                                        <version>1.${java.version}</version>
+                                        <version>${java.version}</version>
                                     </requireJavaVersion>
                                 </rules>
                             </configuration>
