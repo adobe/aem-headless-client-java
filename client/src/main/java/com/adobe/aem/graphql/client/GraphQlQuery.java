@@ -56,7 +56,9 @@ public class GraphQlQuery {
 	}
 
 	public enum Operator {
-		EQUALS, EQUALS_NOT, CONTAINS, CONTAINS_NOT, STARTS_WITH, GREATER, GREATER_EQUAL, LOWER, LOWER_EQUAL, AT, NOT_AT, BEFORE, AT_OR_BEFORE, AFTER, AT_OR_AFTER
+		EQUALS, EQUALS_NOT, CONTAINS, CONTAINS_NOT, STARTS_WITH, // String and ID operators
+		GREATER, EQUAL, GREATER_EQUAL, LOWER, LOWER_EQUAL, // number operators
+		AT, NOT_AT, BEFORE, AT_OR_BEFORE, AFTER, AT_OR_AFTER // date/time operators
 	}
 
 	public enum Type {
