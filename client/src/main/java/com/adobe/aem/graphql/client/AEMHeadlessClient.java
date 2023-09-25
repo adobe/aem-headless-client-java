@@ -321,7 +321,16 @@ public class AEMHeadlessClient {
 
 		String requestPath = ENDPOINT_PERSISTED_QUERIES_EXECUTE + persistedQueryPath;
 		if (variables != null) {
-			requestPath += variables.entrySet().stream().map(this::mapEntryToReqParam).collect(Collectors.joining());
+			
+			String varPart = ";" + variables.entrySet().stream().map(this::mapEntryToReqParam).collect(Collectors.joining(";"));
+			try {
+				// the whole variables section has to be URL-encoded 
+				// compare https://experienceleague.adobe.com/docs/experience-manager-cloud-service/content/headless/graphql-api/persisted-queries.html?lang=en#encoding-query-url
+				varPart =  URLEncoder.encode(varPart, StandardCharsets.UTF_8.name());
+			} catch (UnsupportedEncodingException e) {
+				throw new IllegalStateException("Encoding " + StandardCharsets.UTF_8 + " not supported", e);
+			}
+			requestPath +=  varPart;
 		}
 
 		String responseStr = executeRequest(getUriForPath(endpoint, requestPath), METHOD_GET, null, 200);
@@ -335,12 +344,7 @@ public class AEMHeadlessClient {
 	}
 
 	private String mapEntryToReqParam(Map.Entry<String, Object> entry) {
-		try {
-			return ";" + entry.getKey() + "="
-					+ URLEncoder.encode(String.valueOf(entry.getValue()), StandardCharsets.UTF_8.name());
-		} catch (UnsupportedEncodingException e) {
-			throw new IllegalStateException("Encoding " + StandardCharsets.UTF_8 + " not supported", e);
-		}
+		return entry.getKey() + "=" + String.valueOf(entry.getValue());
 	}
 
 	/**
@@ -424,10 +428,10 @@ public class AEMHeadlessClient {
 		return AUTH_BEARER + SPACE + token;
 	}
 
-	private URI getUriForPath(URI endpoint, String path) {
+	private URI getUriForPath(URI endpoint, String preEncodedPath) {
 		try {
-			return new URI(endpoint.getScheme(), endpoint.getUserInfo(), endpoint.getHost(), endpoint.getPort(), path,
-					null, null);
+			URI basePath = new URI(endpoint.getScheme(), endpoint.getUserInfo(), endpoint.getHost(), endpoint.getPort(), null, null, null);
+			return new URI(basePath + preEncodedPath);
 		} catch (URISyntaxException e) {
 			throw new IllegalArgumentException("Invalid GraphQL URI " + endpoint, e);
 		}

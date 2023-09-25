@@ -15,7 +15,7 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package com.adobe.aem.graphql.client;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * 
  * Adds convenience methods to simplify the use of {@link AEMHeadlessClient}.
  */
-public class GraphQlQueryVars extends HashMap<String, Object> implements Map<String, Object> {
+public class GraphQlQueryVars extends LinkedHashMap<String, Object> implements Map<String, Object> {
 
 	static final String QUERY_VAR_AFTER = "after";
 	static final String QUERY_VAR_FIRST = "first";

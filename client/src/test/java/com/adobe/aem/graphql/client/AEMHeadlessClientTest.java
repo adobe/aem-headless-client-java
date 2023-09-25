@@ -272,7 +272,7 @@ class AEMHeadlessClientTest {
 		verify(aemHeadlessClient).executeRequest(endpointCaptor.capture(), eq(AEMHeadlessClient.METHOD_GET), any(),
 				eq(200));
 		URI actualUri = endpointCaptor.getValue();
-		assertEquals("http://localhost:4502/graphql/execute.json/proj/queryName;prop=test", actualUri.toString());
+		assertEquals("http://localhost:4502/graphql/execute.json/proj/queryName%3Bprop%3Dtest", actualUri.toString());
 
 	}
 
